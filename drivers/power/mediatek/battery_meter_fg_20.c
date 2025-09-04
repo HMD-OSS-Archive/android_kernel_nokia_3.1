@@ -544,14 +544,14 @@ int  fgauge_get_profile_id(void)
 	}
 
 	if(fih_hwid < 0x130)
-		err_range = 2;
+		err_range = 3;
 	else
 		err_range = 1;
 
 	for (i = 0; i < TOTAL_BATTERY_NUMBER; i++) {
 		if (id_volt < g_battery_id_voltage[i] + BAT_ID_POS_NEG_VOLTAGE_ERR_RANGE * err_range &&
 			id_volt > g_battery_id_voltage[i] - BAT_ID_POS_NEG_VOLTAGE_ERR_RANGE * err_range) {
-			g_fg_battery_id = i;
+			g_fg_battery_id = 0;  //battery parameter are the same
 			id = i;
 			break;
 		} else {
@@ -560,7 +560,7 @@ int  fgauge_get_profile_id(void)
 		}
 	}
 	meter_to_common_battery_id(id);
-	bm_info("[fgauge_get_profile_id]Battery id (%d), range = %d \n", g_fg_battery_id, BAT_ID_POS_NEG_VOLTAGE_ERR_RANGE * err_range);
+	bm_info("[fgauge_get_profile_id]Battery id (%d), par: %d, range = %d \n", id, g_fg_battery_id, BAT_ID_POS_NEG_VOLTAGE_ERR_RANGE * err_range);
 	return id;
 }
 #elif defined(MTK_GET_BATTERY_ID_BY_GPIO)

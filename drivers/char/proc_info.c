@@ -67,6 +67,7 @@ static unsigned long long mtk_emmc_size = 0;
 static char *root_status_load;
 static int root_status_len = 4096;
 static bool open_already = 0;
+static int root_cda_user_flag = 0;
 
 int devmodel_init = 0;
 static char str_project[3];
@@ -1171,6 +1172,53 @@ static int skuid_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
+static int cda_user_read_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", root_cda_user_flag);
+	return 0;
+}
+
+static int cda_user_proc_write(struct file *file, const char  __user *buffer,
+                                        size_t count, loff_t *data)
+{
+	struct manuf_data fih_proinfo_data;
+	char tmp[16] = {0};
+	int access = 0;
+
+	if ( copy_from_user(tmp, buffer, count) ) {
+		return -EFAULT;
+	}
+
+	memset(&fih_proinfo_data, 0, sizeof(struct manuf_data));
+
+	access = read_ef(&fih_proinfo_data);
+	if ((FILE_NOT_FOUND == access) || (FILE_CORRUPTED == access))
+	{
+		printk("cda_user_proc_writ: Read failed\n");
+		return READ_MANUFACTURE_FAIL;
+	}
+
+	root_cda_user_flag = simple_strtoull(tmp, NULL, 0);
+
+	switch (root_cda_user_flag) {
+	case FIH_CDA_KERN_USER:
+		fih_proinfo_data.rootflag.status = FIH_CDA_STAT_USER;
+		break;
+	case FIH_CDA_KERN_ROOT:
+		fih_proinfo_data.rootflag.status = FIH_CDA_STAT_ROOT;
+		break;
+	default:
+		fih_proinfo_data.rootflag.status = FIH_CDA_STAT_ROOT;
+		break;
+	}
+	access = write_ef(&fih_proinfo_data);
+	if ((FILE_NOT_FOUND == access) || (FILE_CORRUPTED == access))
+	{
+		printk("cda_user_proc_write: write_ef\n");
+		return WRITE_MANUFACTURE_FAIL;
+	}
+	return count;
+}
 
 static int baseband_open(struct inode *inode, struct file *file)
 {
@@ -1298,6 +1346,11 @@ static int root_status_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, root_status_info_show, &inode->i_private);
 }
+
+static int cda_user_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cda_user_read_show, &inode->i_private);
+};
 
 static int uicolor_open(struct inode *inode, struct file *file)
 {
@@ -1538,6 +1591,14 @@ static const struct file_operations root_status_fops = {
 	.read		 = seq_read,
 	.llseek 	 = seq_lseek,
 	.release	 = single_release,
+};
+
+static const struct file_operations cda_user_file_ops = {
+	.open    = cda_user_proc_open,
+	.read    = seq_read,
+	.write   = cda_user_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release
 };
 
 static const struct file_operations uicolor_fops = {
@@ -1928,6 +1989,11 @@ static int __init proc_info_module_init(void)
 	if(entry == NULL)
 		printk("[dw]creat proc %s fail\n", PROC_STATUSROOT);
 	root_status_load = kmalloc(sizeof(char)*root_status_len, GFP_KERNEL);
+
+	proc_mkdir(FIH_PROC_CDA_USER_DIR, NULL);
+	entry = proc_create(FIH_PROC_CDA_USER_PATH, 0777, NULL, &cda_user_file_ops);
+	if(entry == NULL)
+		printk("[dw]creat proc %s fail\n", FIH_PROC_CDA_USER_PATH);
 
 	entry = proc_create(HWINFO_PROC, S_IFREG | S_IRUGO, NULL, &hwid_info_fops);
 	if(entry == NULL)

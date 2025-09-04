@@ -54,6 +54,14 @@
 #define FIH_PON_APR_ABNORMAL_POWER_DOWN   "0x01000000\n"
 #define FIH_PON_APR_ABNORMAL_POWER_RESET  "0x02000000\n"
 
+#define FIH_PROC_CDA_USER_DIR   "cda"
+#define FIH_PROC_CDA_USER_PATH  "cda/user"
+
+#define FIH_CDA_KERN_USER  (0)
+#define FIH_CDA_KERN_ROOT  (1)
+#define FIH_CDA_STAT_USER  (0)
+#define FIH_CDA_STAT_ROOT  (1)
+
 int otg_last_flag = 0;
 
 struct systeminfo {

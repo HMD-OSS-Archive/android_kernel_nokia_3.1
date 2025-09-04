@@ -235,26 +235,28 @@ long DW9714AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned l
 /* Q1 : Try release multiple times. */
 int DW9714AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 {
-	LOG_INF("Start\n");
-	g_sr = 5; 
-	s4AF_WriteReg(400);
-	mdelay(15);
-	s4AF_WriteReg(370);
-	mdelay(15);
-	s4AF_WriteReg(330);
-	mdelay(15);
-	s4AF_WriteReg(300);
-	mdelay(12);
-	s4AF_WriteReg(260);
-	mdelay(12);
-	s4AF_WriteReg(220);
-	mdelay(12);
-	s4AF_WriteReg(180);
-	mdelay(12);
-	s4AF_WriteReg(140);
-	mdelay(12);
-	s4AF_WriteReg(100);
-	mdelay(12);
+	LOG_INF("Start,*g_pAF_Opened = %d \n",*g_pAF_Opened);
+	if (*g_pAF_Opened == 2) {
+		g_sr = 5; 
+		s4AF_WriteReg(400);
+		mdelay(15);
+		s4AF_WriteReg(370);
+		mdelay(15);
+		s4AF_WriteReg(330);
+		mdelay(15);
+		s4AF_WriteReg(300);
+		mdelay(12);
+		s4AF_WriteReg(260);
+		mdelay(12);
+		s4AF_WriteReg(220);
+		mdelay(12);
+		s4AF_WriteReg(180);
+		mdelay(12);
+		s4AF_WriteReg(140);
+		mdelay(12);
+		s4AF_WriteReg(100);
+		mdelay(12);
+	}
 	if (*g_pAF_Opened) {
 		LOG_INF("Free\n");
 		spin_lock(g_pAF_SpinLock);

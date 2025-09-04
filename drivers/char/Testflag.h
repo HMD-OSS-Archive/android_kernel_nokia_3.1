@@ -323,6 +323,9 @@ int fih_write_tp_rawdata_range(struct manuf_tp_rawdata_range_t *p);
 int fih_read_gsensor_cali(struct manuf_gsensor_cali *p);
 int fih_write_gsensor_cali(struct manuf_gsensor_cali *p);
 
+int write_ef(struct manuf_data * wdata);
+int read_ef(struct manuf_data * rdata);
+
 int fih_read_skuid(char* skuid);
 
 #endif /* _TESTFLAG_H */
