@@ -32,7 +32,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/netdev_features.h>
 #include <linux/sched.h>
-#include <net/flow_dissector.h>
+#include <net/flow_keys.h>
 
 /* net device ftrace debug define */
 #undef NETDEV_TRACE
@@ -937,9 +937,6 @@ static inline __u32 skb_get_hash(struct sk_buff *skb)
 
 	return skb->hash;
 }
-
-__u32 skb_get_hash_perturb(const struct sk_buff *skb,
-			   const siphash_key_t *perturb);
 
 static inline __u32 skb_get_hash_raw(const struct sk_buff *skb)
 {
@@ -1941,8 +1938,8 @@ static inline void skb_probe_transport_header(struct sk_buff *skb,
 
 	if (skb_transport_header_was_set(skb))
 		return;
-	else if (skb_flow_dissect_flow_keys(skb, &keys))
-		skb_set_transport_header(skb, keys.control.thoff);
+	else if (skb_flow_dissect(skb, &keys))
+		skb_set_transport_header(skb, keys.thoff);
 	else
 		skb_set_transport_header(skb, offset_hint);
 }
