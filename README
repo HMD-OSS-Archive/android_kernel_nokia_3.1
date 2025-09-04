@@ -1,6 +1,6 @@
 1. Kernel configuration files
    arch/arm64/configs:
-   Nokia 3.1 (TA-1063/TA-1057): ES2_defconfig
+   Nokia 3.1 (TA-1063/TA-1057/TA-1049/TA-1074/TA-1070): ES2_defconfig
 
 2. How to build
 
