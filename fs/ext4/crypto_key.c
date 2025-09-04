@@ -17,6 +17,8 @@
 #include "ext4.h"
 #include "xattr.h"
 
+struct kmem_cache *ext4_crypt_info_cachep_bak;
+
 static void derive_crypt_complete(struct crypto_async_request *req, int rc)
 {
 	struct ext4_completion_result *ecr = req->data;
@@ -133,6 +135,14 @@ int ext4_get_encryption_info(struct inode *inode)
 		res = ext4_init_crypto();
 		if (res)
 			return res;
+		ext4_crypt_info_cachep_bak = ext4_crypt_info_cachep;
+	}
+	if (ext4_crypt_info_cachep_bak != ext4_crypt_info_cachep ||
+	    (ext4_crypt_info_cachep_bak == NULL)) {
+		pr_notice("ext4_crypt_info_cachep_bak at %p\n",
+			ext4_crypt_info_cachep_bak);
+		pr_notice("ext4_crypt_info_cachep at %p\n",
+			ext4_crypt_info_cachep);
 	}
 
 	res = ext4_xattr_get(inode, EXT4_XATTR_INDEX_ENCRYPTION,

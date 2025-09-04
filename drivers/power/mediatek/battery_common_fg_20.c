@@ -236,8 +236,10 @@ static int g_wireless_state;
 int PSE[MODE_NUM][CONTENT_NUM] = {
 	{600,	2000,	POWER_OFF,	0,	0,	0,	0,	0,	0,	600,	2000,	},
 	{550,	600,	NO_CHARGE2,	0,	0,	0,	0,	0,	0,	500,	600,	},
-	{450,	550,	HOT_CHARGE,	60000,	4100000,3950000,4000000,3700000,4050000,390,	550,	},
-	{150,	450,	NORMAL_PHASE,	200000,	4370000,4250000,4100000,3800000,4150000,150,	450,	},
+	{450,	550,	HOT_CHARGE,	60000,	4100000,3950000,4000000,3700000,4050000,430,	550,	},
+        {400,   450,    NORMAL_PHASE2,  100000, 4370000,4250000,4100000,3800000,4150000,380,    450,    },
+        {300,   400,    NORMAL_PHASE1,  150000, 4370000,4250000,4100000,3800000,4150000,280,    400,    },
+        {150,   300,    NORMAL_PHASE,   200000, 4370000,4250000,4100000,3800000,4150000,130,    300,    },
 	{30,	150,	COLD_CHARGE,	60000,	4370000,4250000,4000000,3700000,4050000,30,	150,	},
 	{-2000,	30,	NO_CHARGE1,	0,	0,	0,	0,	0,	0,	-2000,	50,	}
 };
@@ -511,6 +513,11 @@ kal_bool upmu_is_chr_det(void)
 }
 EXPORT_SYMBOL(upmu_is_chr_det);
 
+void __attribute__ ((weak))
+	battery_disable_batfet(void)
+{
+	pr_notice("battery_disable_batfet do not implement");
+}
 
 void wake_up_bat(void)
 {
@@ -2351,6 +2358,9 @@ void mt_battery_GetBatteryData(void)
 	static unsigned char batteryIndex = 0xff;
 	static signed int previous_SOC = -1;
 	kal_bool current_sign;
+#ifdef GM20_LOW_TEMP_SUPPORT
+	int rtc_tmp;
+#endif
 
 	if (batteryIndex == 0xff)
 		batteryIndex = 0;
@@ -2365,6 +2375,17 @@ void mt_battery_GetBatteryData(void)
 		charger_vol = 0;
 	}
 	temperature = battery_meter_get_battery_temperature();
+#ifdef GM20_LOW_TEMP_SUPPORT
+	rtc_tmp = get_rtc_spare_bat_temp_value();
+
+	if (temperature < rtc_tmp * 5 - 20)
+		set_rtc_spare_bat_temp_value((temperature + 20) / 5);
+
+	battery_log(BAT_LOG_CRTI, "rtc_tmp tmp:%d old_rtc:%d new_rtc:%d\n",
+		temperature,
+		rtc_tmp,
+		get_rtc_spare_bat_temp_value());
+#endif
 	temperatureV = battery_meter_get_tempV();
 	temperatureR = battery_meter_get_tempR(temperatureV);
 	ZCV = battery_meter_get_battery_zcv();
@@ -3357,7 +3378,7 @@ void BAT_thread(void)
 	mt_battery_thermal_check();
 	mt_battery_notify_check();
 
-	if (BMT_status.charger_exist == KAL_TRUE) {
+	if ((BMT_status.charger_exist == KAL_TRUE) && (battery_suspended == KAL_FALSE)) {
 		ftm_battery_check_charging();
 		mt_battery_CheckBatteryStatus();
 		mt_battery_charging_algorithm();
@@ -3365,6 +3386,7 @@ void BAT_thread(void)
 
 	mt_battery_factory_check(); //Jason: add for charging patch at 20150415
 	mt_kpoc_power_off_check();
+	battery_meter_set_fg_int();
 }
 
 /* ///////////////////////////////////////////////////////////////////////////////////////// */
@@ -4555,6 +4577,8 @@ static void battery_timer_resume(void)
 		battery_meter_reset_sleep_time();
 		BAT_thread();
 		mutex_unlock(&bat_mutex);
+	} else {
+		battery_log(BAT_LOG_CRTI, "battery resume NOT by pcm timer!!\n");
 	}
 
 	/* phone call last than x min */
@@ -4571,7 +4595,7 @@ static void battery_timer_resume(void)
 	hrtimer_start(&battery_kthread_timer, ktime, HRTIMER_MODE_REL);
 	hrtimer_start(&charger_hv_detect_timer, hvtime, HRTIMER_MODE_REL);
 #if defined(CONFIG_MTK_PMIC_CHIP_MT6353)
-	battery_log(BAT_LOG_FULL,
+	battery_log(BAT_LOG_CRTI,
 		 "[fg reg] current:0x%x 0x%x low:0x%x 0x%x high:0x%x 0x%x\r\n",
 		pmic_get_register_value(PMIC_FG_CAR_18_03), pmic_get_register_value(PMIC_FG_CAR_34_19),
 		pmic_get_register_value(PMIC_FG_BLTR_15_00), pmic_get_register_value(PMIC_FG_BLTR_31_16),
@@ -4586,7 +4610,7 @@ static void battery_timer_resume(void)
 		low |= ((pmic_get_register_value(PMIC_FG_BLTR_31_16)) & 0xffff) << 16;
 		high = (pmic_get_register_value(PMIC_FG_BFTR_15_00));
 		high |= ((pmic_get_register_value(PMIC_FG_BFTR_31_16)) & 0xffff) << 16;
-		battery_log(BAT_LOG_FULL,
+		battery_log(BAT_LOG_CRTI,
 			 "[fg reg] current:%d low:%d high:%d\r\n", cur, low, high);
 	}
 #else
@@ -4613,7 +4637,7 @@ static void battery_timer_resume(void)
 #endif
 
 	battery_suspended = KAL_FALSE;
-	battery_log(BAT_LOG_FULL, "@bs=0@\n");
+	battery_log(BAT_LOG_CRTI, "@bs=0@\n");
 	mutex_unlock(&bat_mutex);
 
 #endif

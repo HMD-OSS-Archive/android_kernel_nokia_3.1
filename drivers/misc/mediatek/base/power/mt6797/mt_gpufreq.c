@@ -1,8 +1,14 @@
 /*
+ * Copyright (C) 2017 MediaTek Inc.
+ *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #include <linux/kernel.h>
@@ -34,7 +40,7 @@
 #include <linux/of_address.h>
 #endif
 
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #include "mt_clkmgr.h"
 #include "mt_cpufreq.h"
@@ -3696,10 +3702,24 @@ static void _mt_gpufreq_fixed_volt(int fixed_volt)
 static ssize_t mt_gpufreq_fixed_freq_volt_proc_write(struct file *file, const char __user *buffer,
 						     size_t count, loff_t *data)
 {
-	int fixed_freq = 0;
-	int fixed_volt = 0;
+	char buf[64];
+	unsigned int len = 0;
+	int ret = -EFAULT;
+	unsigned int fixed_freq = 0;
+	unsigned int fixed_volt = 0;
 
-	if (sscanf(buffer, "%d %d", &fixed_freq, &fixed_volt) == 2) {
+	if (count == 0)
+		return -EINVAL;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+
+	if (copy_from_user(buf, buffer, len))
+		goto out;
+
+	buf[len] = '\0';
+
+	if (sscanf(buf, "%d %d", &fixed_freq, &fixed_volt) == 2) {
+		ret = 0;
 		if ((fixed_freq == 0) && (fixed_volt == 0)) {
 			mt_gpufreq_fixed_freq_volt_state = false;
 			mt_gpufreq_fixed_frequency = 0;
@@ -3741,7 +3761,8 @@ static ssize_t mt_gpufreq_fixed_freq_volt_proc_write(struct file *file, const ch
 	} else
 		gpufreq_warn("bad argument!! should be [enable fixed_freq fixed_volt]\n");
 
-	return count;
+out:
+	return (ret < 0) ? ret : count;
 }
 
 #ifdef MT_GPUFREQ_INPUT_BOOST

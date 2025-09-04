@@ -1087,7 +1087,8 @@ static ssize_t store_pmic_access(struct device *dev, struct device_attribute *at
 		pvalue = (char *)buf;
 		if (size > 5) {
 			addr = strsep(&pvalue, " ");
-			ret = kstrtou32(addr, 16, (unsigned int *)&reg_address);
+			if (addr)
+				ret = kstrtou32(addr, 16, (unsigned int *)&reg_address);
 		} else
 			ret = kstrtou32(pvalue, 16, (unsigned int *)&reg_address);
 
@@ -1095,7 +1096,8 @@ static ssize_t store_pmic_access(struct device *dev, struct device_attribute *at
 			/*reg_value = simple_strtoul((pvalue + 1), NULL, 16);*/
 			/*pvalue = (char *)buf + 1;*/
 			val =  strsep(&pvalue, " ");
-			ret = kstrtou32(val, 16, (unsigned int *)&reg_value);
+			if (val)
+				ret = kstrtou32(val, 16, (unsigned int *)&reg_value);
 
 			pr_err("[store_pmic_access] write PMU reg 0x%x with value 0x%x !\n",
 				reg_address, reg_value);

@@ -558,6 +558,9 @@ int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 	ipanic_mrdump_once_control(AEE_REBOOT_MODE_KERNEL_PANIC, &saved_regs, "Kernel Panic");
 	spin_lock_irq(&ipanic_lock);
 	aee_disable_api();
+#ifndef CONFIG_DEBUG_BUGVERBOSE
+	dump_stack();
+#endif
 	mrdump_mini_ke_cpu_regs(NULL);
 	__inner_flush_dcache_all();
 	if (!has_mt_dump_support())
@@ -755,7 +758,11 @@ static int ipanic_die(struct notifier_block *self, unsigned long cmd, void *ptr)
 	if (!has_mt_dump_support())
 		emergency_restart();
 
+	/* kick wdt to reduce timeout risk */
+	ipanic_kick_wdt();
 	ipanic_mrdump_mini(AEE_REBOOT_MODE_KERNEL_PANIC, "kernel Oops");
+	/* kick wdt after save the most critical infos */
+	ipanic_kick_wdt();
 	memset(&dumper, 0x0, sizeof(struct kmsg_dumper));
 	ipanic_klog_region(&dumper);
 	ipanic_data_to_sd(IPANIC_DT_KERNEL_LOG, &dumper);

@@ -1,14 +1,14 @@
 /*
- *  drivers/misc/mediatek/power/mt6797/mtk_gpuregulator_intf.h
- *  Include header file to MTK Richtek Interface
- *
- *  Copyright (C) 2015 Richtek Technology Corp.
- *  cy_huang <cy_huang@richtek.com>
+ * Copyright (C) 2017 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #ifndef __LINUX_MTK_GPUREGULATOR_INTF_H
@@ -47,6 +47,10 @@ extern int rt_enable_force_pwm(u8 vsel, u8 enable);
 extern int rt_is_force_pwm_enabled(u8 vsel);
 extern int rt_enable_discharge(u8 enable);
 extern int rt_is_discharge_enabled(void);
+
+/* Used for RT5735A SDA low workaround, called in RTC driver */
+extern int rt_i2c7_switch_gpio_shutdown(void);
+
 /* deprecated for short term */
 extern int rt_read_interface(u8 cmd, u8 *return_data, u8 mask, u8 shift);
 extern int rt_read_byte(u8 cmd, u8 *return_data);
@@ -74,6 +78,7 @@ struct mtk_user_intf {
 	int (*get_slew_rate)(void *info, u8 up_down);
 	int (*set_slew_rate)(void *info, u8 up_down, u8 val);
 	void (*dump_registers)(void *info);
+	int (*i2c7_switch_gpio_shutdown)(void); /* Used for RT5735A SDA low workaround */
 };
 
 struct chip_io_intf {

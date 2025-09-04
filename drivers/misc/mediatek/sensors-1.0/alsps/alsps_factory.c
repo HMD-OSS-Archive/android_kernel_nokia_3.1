@@ -206,6 +206,7 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd, un
 			return -EINVAL;
 		}
 		return 0;
+#if 0
 	case ALSPS_IOCTL_SET_ALS_CALI:
 		if (copy_from_user(&data, ptr, sizeof(data)))
 			return -EFAULT;
@@ -220,6 +221,7 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd, un
 			return -EINVAL;
 		}
 		return 0;
+#endif
 	case ALSPS_IOCTL_GET_CALI:
 		if (alsps_factory.fops != NULL && alsps_factory.fops->ps_get_cali != NULL) {
 			err = alsps_factory.fops->ps_get_cali(&data);
@@ -313,7 +315,7 @@ static const struct file_operations _alsps_factory_fops = {
 
 static struct miscdevice alsps_factory_device = {
 	.minor = MISC_DYNAMIC_MINOR,
-	.name = "als_ps",
+	.name = "f_als_ps",
 	.fops = &_alsps_factory_fops,
 };
 

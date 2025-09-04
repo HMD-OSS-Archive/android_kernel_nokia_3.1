@@ -593,20 +593,6 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
 		else
 			answ = tp->write_seq - tp->snd_nxt;
 		break;
-				/* MTK_NET_CHANGES */
-case SIOCKILLSOCK:
-{
-	struct uid_err uid_e;
-
-	if (copy_from_user(&uid_e, (char __user *)arg, sizeof(uid_e)))
-		return -EFAULT;
-	pr_debug("SIOCKILLSOCK uid = %d , err = %d", uid_e.appuid, uid_e.errNum);
-	if (uid_e.errNum == 0)
-		tcp_v4_handle_retrans_time_by_uid(uid_e);
-	else
-		tcp_v4_reset_connections_by_uid(uid_e);
-	return 0;
-}
 	default:
 		return -ENOIOCTLCMD;
 	}
@@ -2296,9 +2282,15 @@ int tcp_disconnect(struct sock *sk, int flags)
 	tcp_set_ca_state(sk, TCP_CA_Open);
 	tcp_clear_retrans(tp);
 	inet_csk_delack_init(sk);
+	/* Initialize rcv_mss to TCP_MIN_MSS to avoid division by 0
+	 * issue in __tcp_select_window()
+	 */
+	icsk->icsk_ack.rcv_mss = TCP_MIN_MSS;
 	tcp_init_send_head(sk);
 	memset(&tp->rx_opt, 0, sizeof(tp->rx_opt));
 	__sk_dst_reset(sk);
+	dst_release(sk->sk_rx_dst);
+	sk->sk_rx_dst = NULL;
 
 	WARN_ON(inet->inet_num && !icsk->icsk_bind_hash);
 

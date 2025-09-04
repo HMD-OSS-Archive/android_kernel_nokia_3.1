@@ -5078,7 +5078,7 @@ static void isp_freebuf(struct isp_imem_memory *pMemInfo)
 	}
 
 	handle = (struct ion_handle *) pMemInfo->handle;
-	if (handle) {
+	if (handle != NULL) {
 		ion_unmap_kernel(isp_p2_ion_client, handle);
 		ion_free(isp_p2_ion_client, handle);
 	}
@@ -8702,6 +8702,7 @@ static MINT32 ISP_open(
 
 	LOG_DBG("- E. UserCount: %d.\n", IspInfo.UserCount);
 
+	mutex_lock(&gIspMutex);
 
 	/*  */
 	spin_lock(&(IspInfo.SpinLockIspRef));
@@ -8783,7 +8784,6 @@ static MINT32 ISP_open(
 		goto EXIT;
 	}
 
-	mutex_lock(&gIspMutex);
 	g_bIonBufferAllocated = MFALSE;
 #ifdef AEE_DUMP_BY_USING_ION_MEMORY
 	g_isp_p2_imem_buf.handle = NULL;
@@ -8795,10 +8795,12 @@ static MINT32 ISP_open(
 	isp_p2_ion_client = NULL;
 	if ((isp_p2_ion_client == NULL) && (g_ion_device))
 		isp_p2_ion_client = ion_client_create(g_ion_device, "isp_p2");
-	if (isp_p2_ion_client == NULL)
+	if (isp_p2_ion_client == NULL) {
 		LOG_ERR("invalid isp_p2_ion_client client!\n");
-	if (isp_allocbuf(&g_isp_p2_imem_buf) >= 0)
-		g_bIonBufferAllocated = MTRUE;
+	} else {
+		if (isp_allocbuf(&g_isp_p2_imem_buf) >= 0)
+			g_bIonBufferAllocated = MTRUE;
+	}
 #endif
 
 	if (g_bIonBufferAllocated == MTRUE) {
@@ -8823,7 +8825,7 @@ static MINT32 ISP_open(
 		g_pKWCmdqBuffer = NULL;
 		g_pKWVirISPBuffer = NULL;
 	}
-	mutex_unlock(&gIspMutex);
+
 	g_bUserBufIsReady = MFALSE;
 	g_bDumpPhyISPBuf = MFALSE;
 	g_dumpInfo.tdri_baseaddr = 0xFFFFFFFF;/* 0x15022204 */
@@ -8885,7 +8887,7 @@ EXIT:
 		ISP_EnableClock(MTRUE);
 		LOG_DBG("isp open G_u4EnableClockCount: %d\n", G_u4EnableClockCount);
 	}
-
+	mutex_unlock(&gIspMutex);
 
 	LOG_INF("- X. Ret: %d. UserCount: %d.\n", Ret, IspInfo.UserCount);
 	return Ret;
@@ -9010,6 +9012,7 @@ static MINT32 ISP_release(
 		kfree(pFile->private_data);
 		pFile->private_data = NULL;
 	}
+	mutex_lock(&gIspMutex);
 	/*      */
 	spin_lock(&(IspInfo.SpinLockIspRef));
 	IspInfo.UserCount--;
@@ -9085,7 +9088,7 @@ static MINT32 ISP_release(
 	}
 
 	/* Protect the Multi Process */
-	mutex_lock(&gIspMutex);
+
 	if (g_bIonBufferAllocated == MFALSE) {
 		/* Native Exception */
 		if (g_pPhyISPBuffer != NULL) {
@@ -9123,11 +9126,13 @@ static MINT32 ISP_release(
 		}
 	} else {
 #ifdef AEE_DUMP_BY_USING_ION_MEMORY
-		isp_freebuf(&g_isp_p2_imem_buf);
-		g_isp_p2_imem_buf.handle = NULL;
-		g_isp_p2_imem_buf.ion_fd = 0;
-		g_isp_p2_imem_buf.va = 0;
-		g_isp_p2_imem_buf.pa = 0;
+		if (g_isp_p2_imem_buf.handle != NULL) {
+			isp_freebuf(&g_isp_p2_imem_buf);
+			g_isp_p2_imem_buf.handle = NULL;
+			g_isp_p2_imem_buf.ion_fd = 0;
+			g_isp_p2_imem_buf.va = 0;
+			g_isp_p2_imem_buf.pa = 0;
+		}
 		g_bIonBufferAllocated = MFALSE;
 		/* Navtive Exception */
 		g_pPhyISPBuffer = NULL;
@@ -9141,7 +9146,7 @@ static MINT32 ISP_release(
 		g_pKWVirISPBuffer = NULL;
 #endif
 	}
-	mutex_unlock(&gIspMutex);
+
 
 #ifdef AEE_DUMP_BY_USING_ION_MEMORY
 	if (isp_p2_ion_client != NULL) {
@@ -9190,6 +9195,7 @@ EXIT:
 	*  2. CCF: call clk_enable/disable every time
 	*/
 	ISP_EnableClock(MFALSE);
+	mutex_unlock(&gIspMutex);
 	LOG_DBG("isp release G_u4EnableClockCount: %d", G_u4EnableClockCount);
 
 	LOG_INF("- X. UserCount: %d.", IspInfo.UserCount);
@@ -11209,11 +11215,9 @@ static int isp_p2_ke_dump_read(struct seq_file *m, void *v)
 	seq_printf(m, "===isp p2 g_bDumpPhyISPBuf:%d, g_tdriaddr:0x%x, g_cmdqaddr:0x%x===\n", g_bDumpPhyISPBuf,
 		g_tdriaddr, g_cmdqaddr);
 	seq_puts(m, "===isp p2 hw physical register===\n");
-	mutex_lock(&gIspMutex);
-	if (g_bDumpPhyISPBuf == MFALSE) {
-		mutex_unlock(&gIspMutex);
+	if (g_bDumpPhyISPBuf == MFALSE)
 		return 0;
-	}
+	mutex_lock(&gIspMutex);
 	if (g_pPhyISPBuffer != NULL) {
 		for (i = 0; i < (ISP_DIP_PHYSICAL_REG_SIZE >> 2); i = i + 4) {
 			seq_printf(m, "(0x%08X,0x%08X)(0x%08X,0x%08X)(0x%08X,0x%08X)(0x%08X,0x%08X)\n",
@@ -11294,6 +11298,7 @@ static int isp_p2_ke_dump_read(struct seq_file *m, void *v)
 				DIP_A_BASE_HW+4*(i+2), (unsigned int)g_KWVirISPBuffer[i+2],
 				DIP_A_BASE_HW+4*(i+3), (unsigned int)g_KWVirISPBuffer[i+3]);
 	}
+	mutex_unlock(&gIspMutex);
 	seq_puts(m, "============ isp p2 ke dump debug ============\n");
 #endif
 	return 0;
@@ -11328,11 +11333,9 @@ static int isp_p2_dump_read(struct seq_file *m, void *v)
 	seq_printf(m, "===isp p2 g_bDumpPhyB:%d,tdriadd:0x%x,imgiadd:0x%x,dmgiadd:0x%x===\n",
 		g_bDumpPhyISPBuf, g_dumpInfo.tdri_baseaddr, g_dumpInfo.imgi_baseaddr, g_dumpInfo.dmgi_baseaddr);
 	seq_puts(m, "===isp p2 hw physical register===\n");
-	mutex_lock(&gIspMutex);
-	if (g_bUserBufIsReady == MFALSE) {
-		mutex_unlock(&gIspMutex);
+	if (g_bUserBufIsReady == MFALSE)
 		return 0;
-	}
+	mutex_lock(&gIspMutex);
 	if (g_pPhyISPBuffer != NULL) {
 		for (i = 0; i < (ISP_DIP_PHYSICAL_REG_SIZE >> 2); i = i + 4) {
 			seq_printf(m, "(0x%08X,0x%08X)(0x%08X,0x%08X)(0x%08X,0x%08X)(0x%08X,0x%08X)\n",
@@ -11457,6 +11460,7 @@ static int isp_p2_dump_read(struct seq_file *m, void *v)
 				DIP_A_BASE_HW+4*(i+2), (unsigned int)g_KWVirISPBuffer[i+2],
 				DIP_A_BASE_HW+4*(i+3), (unsigned int)g_KWVirISPBuffer[i+3]);
 	}
+	mutex_unlock(&gIspMutex);
 	seq_puts(m, "============ isp p2 ne dump debug ============\n");
 #endif
 	return 0;

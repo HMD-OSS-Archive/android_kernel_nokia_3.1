@@ -15,4 +15,5 @@ obj-$(CONFIG_NFC_ST21NFCA)  	+= st21nfca/
 obj-$(CONFIG_NFC_ST21NFCB)	+= st21nfcb/
 obj-$(CONFIG_SEC_NFC)           += samsung/
 
+obj-$(CONFIG_ST_NFC)           += stm/
 ccflags-$(CONFIG_NFC_DEBUG) := -DDEBUG

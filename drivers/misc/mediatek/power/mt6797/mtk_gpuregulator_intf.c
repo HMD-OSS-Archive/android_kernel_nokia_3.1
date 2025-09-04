@@ -1,14 +1,14 @@
 /*
- *  drivers/misc/mediatek/power/mt6797/mtk_gpuregulator_intf.c
- *  Driver for Richtek RT5735 Regulator
- *
- *  Copyright (C) 2015 Richtek Technology Corp.
- *  cy_huang <cy_huang@richtek.com>
+ * Copyright (C) 2017 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #include <linux/kernel.h>
@@ -273,6 +273,18 @@ void rt_dump_registers(void)
 	user_intf->dump_registers(g_intf_info->parent_info);
 }
 EXPORT_SYMBOL(rt_dump_registers);
+
+/* Used for RT5735A SDA low workaround, called in RTC driver */
+int rt_i2c7_switch_gpio_shutdown(void)
+{
+	const struct mtk_user_intf *user_intf = g_intf_info->pdata->user_intf;
+
+	if (!user_intf->i2c7_switch_gpio_shutdown)
+		return -1;
+
+	return user_intf->i2c7_switch_gpio_shutdown();
+}
+EXPORT_SYMBOL(rt_i2c7_switch_gpio_shutdown);
 
 static ssize_t show_rt_access(struct device *dev, struct device_attribute *attr,
 			      char *buf)

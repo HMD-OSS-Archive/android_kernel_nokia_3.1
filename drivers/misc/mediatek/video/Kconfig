@@ -46,19 +46,6 @@ config CUSTOM_LCM_Y
 	help
 	  To set CUSTOM_LCM_Y size
 
-config MTK_ROUND_CORNER_SUPPORT
-	bool "enable medietak display round corner"
-	default n
-	help
-	  define CONFIG_MTK_ROUND_CORNER_SUPPORT to enable Mediatek Round Corner on display.
-	  If you want to use Meditek Round Corner on display, please make sure it is Y in xxx_defconfig.mk.
-	  This feature require round corner pattern provided in lcm driver folder.
-	  If unsure, set N.
-
-config TOUCHSCREEN_MTK_FTSRAW_CHECK_LCDESD
-	bool "Using TP raw data to help LCD ESD check in FocalTech Panel"
-	depends on TOUCHSCREEN_MTK_FTS_TPESD
-
 config MTK_FB_SUPPORT_ASSERTION_LAYER
 	bool "AEE Assertion Layer Support"
 	depends on MTK_FB
@@ -69,6 +56,10 @@ config MTK_FB_SUPPORT_ASSERTION_LAYER
 	  This enable support for AEE assertion layer.
 	  If you want to enable AEE assertion layer support, say Y here.
 	  If unsure, say N.
+
+config TOUCHSCREEN_MTK_FTSRAW_CHECK_LCDESD
+	bool "Using TP raw data to help LCD ESD check in FocalTech Panel"
+	depends on TOUCHSCREEN_MTK_FTS_TPESD
 
 config MTK_AAL_SUPPORT
 	bool "MTK_AAL_SUPPORT"
@@ -108,6 +99,15 @@ config MTK_CONSUMER_PARTIAL_UPDATE_SUPPORT
 	default n
 	help
 	  This enable support display partial support.
+
+config MTK_ROUND_CORNER_SUPPORT
+	bool "enable medietak display round corner"
+	default n
+	help
+	  define CONFIG_MTK_ROUND_CORNER_SUPPORT to enable Mediatek Round Corner on display.
+	  If you want to use Meditek Round Corner on display, please make sure it is Y in xxx_defconfig.mk.
+	  This feature require round corner pattern provided in lcm driver folder.
+	  If unsure, set N.
 
 config MTK_PQ_COLOR_MODE
 	string "Config PQ_COLOR_MODE (MDP & DISP COLOR on/off)"

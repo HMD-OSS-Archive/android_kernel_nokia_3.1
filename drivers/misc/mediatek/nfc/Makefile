@@ -12,7 +12,7 @@
 #
 
 
-ifeq ($(CONFIG_NFC_CHIP_SUPPORT),y)
+ifeq ($(CONFIG_STM_MTK_NFC),y)
 obj-y += st21nfc/
 else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/

@@ -43,10 +43,6 @@
 #include <core/core.h>
 #include <card/queue.h>
 
-#ifdef CONFIG_MMC_FFU
-#include <linux/mmc/ffu.h>
-#endif
-
 #ifdef MTK_MSDC_BRINGUP_DEBUG
 #include <mach/mt_pmic_wrap.h>
 #endif
@@ -343,6 +339,7 @@ static u16 msdc_offsets[] = {
 
 void msdc_dump_register_core(u32 id, void __iomem *base)
 {
+	u32 val;
 	u16 i;
 
 	for (i = 0; i < sizeof(msdc_offsets)/sizeof(msdc_offsets[0]); i++) {
@@ -356,7 +353,9 @@ void msdc_dump_register_core(u32 id, void __iomem *base)
 		 && (msdc_offsets[i] >= OFFSET_EMMC50_PAD_DS_TUNE))
 			break;
 
-		pr_reg(msdc_offsets[i], MSDC_READ32(base + msdc_offsets[i]));
+		val = MSDC_READ32(base + msdc_offsets[i]);
+		if (val)
+			pr_reg(msdc_offsets[i], val);
 	}
 
 	return;
@@ -375,9 +374,9 @@ void msdc_dump_dbg_register_core(u32 id, void __iomem *base)
 
 	for (i = 0; i <= 0x27; i++) {
 		MSDC_WRITE32(MSDC_DBG_SEL, i);
-		SIMPLE_INIT_MSG("SEL:r[%x]=0x%x", OFFSET_MSDC_DBG_SEL, i);
-		SIMPLE_INIT_MSG("OUT:r[%x]=0x%x", OFFSET_MSDC_DBG_OUT,
-			 MSDC_READ32(MSDC_DBG_OUT));
+		SIMPLE_INIT_MSG("SEL:r[%x]=0x%02x  OUT:r[%x]=0x%x",
+			OFFSET_MSDC_DBG_SEL, i,
+			OFFSET_MSDC_DBG_OUT, MSDC_READ32(MSDC_DBG_OUT));
 	}
 
 	MSDC_WRITE32(MSDC_DBG_SEL, 0);
@@ -424,7 +423,7 @@ void msdc_dump_info(u32 id)
 	msdc_dump_clock_sts();
 
 	/* 3: check msdc pmic ldo */
-	/* msdc_dump_ldo_sts(host); */
+	msdc_dump_ldo_sts(host);
 
 	/* 4: check msdc pad control */
 	/* msdc_dump_padctl(host); */
@@ -735,7 +734,6 @@ static void msdc_clksrc_onoff(struct msdc_host *host, u32 on)
 		#endif
 
 		(void)msdc_clk_enable(host);
-		host->last_cg_clr_time = sched_clock();
 
 		host->core_clkon = 1;
 		udelay(10);
@@ -754,7 +752,6 @@ static void msdc_clksrc_onoff(struct msdc_host *host, u32 on)
 			MSDC_SET_FIELD(MSDC_CFG, MSDC_CFG_MODE, MSDC_MS);
 
 			msdc_clk_disable(host);
-			host->last_cg_set_time = sched_clock();
 
 			host->core_clkon = 0;
 
@@ -1865,9 +1862,7 @@ static unsigned int msdc_command_start(struct msdc_host   *host,
 	MSDC_CLR_BIT32(MSDC_INTEN, wints_cmd);
 	rawarg = cmd->arg;
 
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	dbg_add_host_log(host->mmc, 0, cmd->opcode, cmd->arg);
-#endif
 
 	sdc_send_cmd(rawcmd, rawarg);
 
@@ -1981,9 +1976,8 @@ static u32 msdc_command_resp_polling(struct msdc_host *host,
 			}
 			break;
 		}
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 		dbg_add_host_log(host->mmc, 1, cmd->opcode, cmd->resp[0]);
-#endif
+
 	} else if (intsts & MSDC_INT_RSPCRCERR) {
 		cmd->error = (unsigned int)-EILSEQ;
 		if ((cmd->opcode != 19) && (cmd->opcode != 21))
@@ -2006,10 +2000,8 @@ static u32 msdc_command_resp_polling(struct msdc_host *host,
 		    (cmd->opcode != 19) && (cmd->opcode != 21) &&
 		    (cmd->opcode != 1) &&
 		    ((cmd->opcode != 13) || (g_emmc_mode_switch == 0))) {
-#if 0 /* def CONFIG_MTK_EMMC_CQ_SUPPORT */
 			if (host->hw->host_function == MSDC_EMMC)
-				mmc_cmd_dump(host->mmc);
-#endif
+				mmc_cmd_dump(NULL, NULL, host->mmc, 50);
 			msdc_dump_info(host->id);
 		}
 
@@ -2208,7 +2200,7 @@ static unsigned int msdc_cmdq_command_resp_polling(struct msdc_host *host,
 			cmd->error = (unsigned int)-ETIMEDOUT;
 			pr_err("[%s]: msdc%d XXX CMD<%d> MSDC_INT_CMDTMO Arg<0x%.8x>",
 				__func__, host->id, cmd->opcode, cmd->arg);
-			/* mmc_cmd_dump(host->mmc); */
+			mmc_cmd_dump(NULL, NULL, host->mmc, 50);
 			msdc_dump_info(host->id);
 			/*msdc_reset_hw(host->id);*/
 		}
@@ -2679,9 +2671,7 @@ static void msdc_dma_start(struct msdc_host *host)
 	N_MSG(DMA, "DMA start");
 	/* Schedule delayed work to check if data0 keeps busy */
 	if (host->data && (host->data->flags & MMC_DATA_WRITE)) {
-		host->write_timeout_ms = min_t(u32, max_t(u32,
-			host->data->blocks * 500,
-			host->data->timeout_ns / 1000000), 10 * 1000);
+		host->write_timeout_ms = 30 * 1000;
 		schedule_delayed_work(&host->write_timeout,
 			msecs_to_jiffies(host->write_timeout_ms));
 		N_MSG(DMA, "DMA Data Busy Timeout:%u ms, schedule_delayed_work",
@@ -5242,7 +5232,6 @@ static void msdc_check_write_timeout(struct work_struct *work)
 
 	if ((msdc_use_async_dma(data->host_cookie)) &&
 	    (!host->async_tuning_in_progress)) {
-		mmc_cmd_dump(host->mmc);
 		msdc_dump_info(host->id);
 
 		msdc_dma_stop(host);
@@ -5408,7 +5397,6 @@ static irqreturn_t msdc_irq(int irq, void *dev_id)
 
 	if (host->core_clkon == 0) {
 		(void)msdc_clk_enable(host);
-		host->last_cg_clr_time = sched_clock();
 		host->core_clkon = 1;
 		MSDC_SET_FIELD(MSDC_CFG, MSDC_CFG_MODE, MSDC_SDMMC);
 	}
@@ -5679,20 +5667,13 @@ static void msdc_tasklet_flush_cache(unsigned long arg)
 static void msdc_timer_pm(unsigned long data)
 {
 	struct msdc_host *host = (struct msdc_host *)data;
-	void __iomem *base = host->base;
 	unsigned long flags;
 
 	spin_lock_irqsave(&host->clk_gate_lock, flags);
 	if (host->clk_gate_count == 0) {
-		/* re-schedule when controller or device is busy */
-		if (host->power_mode != MMC_POWER_OFF
-		 && (sdc_is_busy() ||
-		     !((MSDC_READ32(MSDC_PS) >> 16) & 0x1))) {
-			mod_timer(&host->timer, jiffies + CLK_TIMEOUT);
-		} else {
-			msdc_clksrc_onoff(host, 0);
-			N_MSG(CLK, "gate msdc%d clock", host->id);
-		}
+		msdc_clksrc_onoff(host, 0);
+		N_MSG(CLK, "time out, dsiable clock, clk_gate_count=%d",
+			host->clk_gate_count);
 	}
 #ifdef MTK_MSDC_FLUSH_BY_CLK_GATE
 	if (check_mmc_cache_ctrl(mmc->card))
@@ -6141,29 +6122,12 @@ static int msdc_drv_suspend(struct platform_device *pdev, pm_message_t state)
 	struct mmc_host *mmc = platform_get_drvdata(pdev);
 	struct msdc_host *host;
 	void __iomem *base;
-	unsigned long flags;
 
 	if (mmc == NULL)
 		return 0;
 
 	host = mmc_priv(mmc);
 	base = host->base;
-
-	spin_lock_irqsave(&host->clk_gate_lock, flags);
-	if (host->clk_gate_count > 0) {
-		ERR_MSG("msdc is busy\n");
-		spin_unlock_irqrestore(&host->clk_gate_lock, flags);
-		return -EBUSY;
-	}
-	spin_unlock_irqrestore(&host->clk_gate_lock, flags);
-
-	msdc_ungate_clock(host);
-	if (sdc_is_busy() || (((MSDC_READ32(MSDC_PS) >> 16) & 0xF) == 0xE)) {
-		ERR_MSG("msdc or device is busy, MSDC_PS=0x%x\n", MSDC_READ32(MSDC_PS));
-		msdc_gate_clock(host, 1);
-		return -EBUSY;
-	}
-	msdc_gate_clock(host, 1);
 
 	if (state.event == PM_EVENT_SUSPEND) {
 		if  (host->hw->flags & MSDC_SYS_SUSPEND) {

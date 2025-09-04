@@ -345,7 +345,6 @@ static int autok_send_tune_cmd(struct msdc_host *host, unsigned int opcode, enum
 	unsigned int fifo_have = 0;
 	unsigned int fifo_1k_cnt = 0;
 	unsigned int i = 0;
-	unsigned long tmo2 = jiffies + CMD_TIMEOUT;
 	int ret = E_RESULT_PASS;
 
 	switch (opcode) {
@@ -406,14 +405,8 @@ static int autok_send_tune_cmd(struct msdc_host *host, unsigned int opcode, enum
 		break;
 	}
 
-	do {
-		if (!sdc_is_busy())
-			break;
-		if (time_after(jiffies, tmo2)) {
-			ret = E_RESULT_FATAL_ERR;
-			goto end;
-		}
-	} while (1);
+	while ((MSDC_READ32(SDC_STS) & SDC_STS_SDCBUSY))
+		;
 
 	/* clear fifo */
 	if ((tune_type_value == TUNE_CMD) || (tune_type_value == TUNE_DATA)) {
@@ -2054,8 +2047,7 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 				if ((ret & (E_RESULT_CMD_TMO | E_RESULT_RSP_CRC)) != 0) {
 					RawData64 |= (u64)(1LL << j);
 					break;
-				} else if ((ret & E_RESULT_FATAL_ERR) != 0)
-					return -1;
+				}
 			}
 		}
 		score = autok_simple_score64(tune_result_str64, RawData64);
@@ -2139,8 +2131,7 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 			} else if ((ret & (E_RESULT_DAT_CRC | E_RESULT_DAT_TMO)) != 0) {
 				RawData64 |= (u64) (1LL << j);
 				break;
-			} else if ((ret & E_RESULT_FATAL_ERR) != 0)
-				return -1;
+			}
 		}
 	}
 	RawData64 |= 0xffffffff00000000;
@@ -2267,8 +2258,7 @@ int execute_cmd_online_tuning(struct msdc_host *host, u8 *res)
 				if ((ret & (E_RESULT_CMD_TMO | E_RESULT_RSP_CRC)) != 0) {
 					RawData64 |= (u64)(1LL << j);
 					break;
-				} else if ((ret & E_RESULT_FATAL_ERR) != 0)
-					return -1;
+				}
 			}
 		}
 		score = autok_simple_score64(tune_result_str64, RawData64);
@@ -2374,15 +2364,15 @@ int autok_execute_tuning_latch_ck(struct msdc_host *host, unsigned int opcode,
 					break;
 				}
 			} else if (opcode == MMC_SEND_EXT_CSD) {
-				host->tune_latch_ck_cnt = k + 1;
+					host->tune_latch_ck_cnt = k + 1;
 			} else
 				host->tune_latch_ck_cnt++;
 			ret = autok_send_tune_cmd(host, opcode, TUNE_LATCH_CK);
 			if ((ret & (E_RESULT_CMD_TMO | E_RESULT_RSP_CRC)) != 0) {
 				AUTOK_RAWPRINT("[AUTOK]Error Autok CMD Failed while tune LATCH CK\r\n");
-				return 0;
+				break;
 			} else if ((ret & (E_RESULT_DAT_CRC | E_RESULT_DAT_TMO)) != 0) {
-				AUTOK_RAWPRINT("[AUTOK]Autok tune LATCH_CK %d need to be adjusted\r\n", j);
+				AUTOK_RAWPRINT("[AUTOK]Error Autok  tune LATCH_CK error %d\r\n", j);
 				break;
 			}
 		}
@@ -2392,8 +2382,7 @@ int autok_execute_tuning_latch_ck(struct msdc_host *host, unsigned int opcode,
 		}
 	}
 	host->tune_latch_ck_cnt = 0;
-
-	return (j >= 8) ? 7 : j;
+	return j;
 }
 
 /* online tuning for eMMC4.5(hs200) */
@@ -2431,8 +2420,7 @@ int execute_online_tuning_hs200(struct msdc_host *host, u8 *res)
 				if ((ret & (E_RESULT_CMD_TMO | E_RESULT_RSP_CRC)) != 0) {
 					RawData64 |= (u64) (1LL << j);
 					break;
-				} else if ((ret & E_RESULT_FATAL_ERR) != 0)
-					return -1;
+				}
 			}
 		}
 		score = autok_simple_score64(tune_result_str64, RawData64);
@@ -2484,8 +2472,7 @@ int execute_online_tuning_hs200(struct msdc_host *host, u8 *res)
 			} else if ((ret & (E_RESULT_DAT_CRC | E_RESULT_DAT_TMO)) != 0) {
 				RawData64 |= (u64) (1LL << j);
 				break;
-			} else if ((ret & E_RESULT_FATAL_ERR) != 0)
-				return -1;
+			}
 		}
 	}
 	score = autok_simple_score64(tune_result_str64, RawData64);
@@ -2564,8 +2551,7 @@ int execute_online_tuning(struct msdc_host *host, u8 *res)
 				if ((ret & (E_RESULT_CMD_TMO | E_RESULT_RSP_CRC)) != 0) {
 					RawData64 |= (u64) (1LL << j);
 					break;
-				} else if ((ret & E_RESULT_FATAL_ERR) != 0)
-					return -1;
+				}
 			}
 		}
 		score = autok_simple_score64(tune_result_str64, RawData64);
@@ -2620,8 +2606,7 @@ int execute_online_tuning(struct msdc_host *host, u8 *res)
 				} else if ((ret & (E_RESULT_DAT_CRC | E_RESULT_DAT_TMO)) != 0) {
 					RawData64 |= (u64) (1LL << j);
 					break;
-				} else if ((ret & E_RESULT_FATAL_ERR) != 0)
-					return -1;
+				}
 			}
 		}
 		score = autok_simple_score64(tune_result_str64, RawData64);
@@ -2710,8 +2695,7 @@ int execute_online_tuning_stress(struct msdc_host *host)
 					if ((ret & (E_RESULT_CMD_TMO | E_RESULT_RSP_CRC)) != 0) {
 						RawData64 |= (u64) (1LL << j);
 						break;
-					} else if ((ret & E_RESULT_FATAL_ERR) != 0)
-						return -1;
+					}
 				}
 			}
 			score = autok_simple_score64(tune_result_str64, RawData64);
@@ -2781,8 +2765,7 @@ rd_retry:
 					} else if ((ret & (E_RESULT_DAT_CRC | E_RESULT_DAT_TMO)) != 0) {
 						RawData64 |= (u64) (1LL << j);
 						break;
-					} else if ((ret & E_RESULT_FATAL_ERR) != 0)
-						return -1;
+					}
 				}
 			}
 			score = autok_simple_score64(tune_result_str64, RawData64);
@@ -3511,7 +3494,6 @@ int autok_execute_tuning(struct msdc_host *host, u8 *res)
 	unsigned int clk_pwdn = 0;
 	unsigned int int_en = 0;
 	void __iomem *base = host->base;
-	unsigned int dtoc = 0;
 
 	do_gettimeofday(&tm_s);
 
@@ -3519,8 +3501,6 @@ int autok_execute_tuning(struct msdc_host *host, u8 *res)
 	MSDC_WRITE32(MSDC_INTEN, 0);
 	MSDC_GET_FIELD(MSDC_CFG, MSDC_CFG_CKPDN, clk_pwdn);
 	MSDC_SET_FIELD(MSDC_CFG, MSDC_CFG_CKPDN, 1);
-	MSDC_GET_FIELD(SDC_CFG, SDC_CFG_DTOC, dtoc);
-	MSDC_SET_FIELD(SDC_CFG, SDC_CFG_DTOC, 3);
 
 #if AUTOK_OFFLINE_TUNE_ENABLE
 	if (execute_offline_tuning(host) != 0)
@@ -3534,7 +3514,6 @@ int autok_execute_tuning(struct msdc_host *host, u8 *res)
 	MSDC_WRITE32(MSDC_INT, 0xffffffff);
 	MSDC_WRITE32(MSDC_INTEN, int_en);
 	MSDC_SET_FIELD(MSDC_CFG, MSDC_CFG_CKPDN, clk_pwdn);
-	MSDC_SET_FIELD(SDC_CFG, SDC_CFG_DTOC, dtoc);
 
 	do_gettimeofday(&tm_e);
 	tm_val = (tm_e.tv_sec - tm_s.tv_sec) * 1000 + (tm_e.tv_usec - tm_s.tv_usec) / 1000;
@@ -3552,15 +3531,12 @@ int hs400_execute_tuning(struct msdc_host *host, u8 *res)
 	unsigned int clk_pwdn = 0;
 	unsigned int int_en = 0;
 	void __iomem *base = host->base;
-	unsigned int dtoc = 0;
 
 	do_gettimeofday(&tm_s);
 	int_en = MSDC_READ32(MSDC_INTEN);
 	MSDC_WRITE32(MSDC_INTEN, 0);
 	MSDC_GET_FIELD(MSDC_CFG, MSDC_CFG_CKPDN, clk_pwdn);
 	MSDC_SET_FIELD(MSDC_CFG, MSDC_CFG_CKPDN, 1);
-	MSDC_GET_FIELD(SDC_CFG, SDC_CFG_DTOC, dtoc);
-	MSDC_SET_FIELD(SDC_CFG, SDC_CFG_DTOC, 3);
 
 #if HS400_OFFLINE_TUNE_ENABLE
 	if (execute_offline_tuning_hs400(host) != 0)
@@ -3578,7 +3554,6 @@ int hs400_execute_tuning(struct msdc_host *host, u8 *res)
 	MSDC_WRITE32(MSDC_INT, 0xffffffff);
 	MSDC_WRITE32(MSDC_INTEN, int_en);
 	MSDC_SET_FIELD(MSDC_CFG, MSDC_CFG_CKPDN, clk_pwdn);
-	MSDC_SET_FIELD(SDC_CFG, SDC_CFG_DTOC, dtoc);
 
 	do_gettimeofday(&tm_e);
 	tm_val = (tm_e.tv_sec - tm_s.tv_sec) * 1000 + (tm_e.tv_usec - tm_s.tv_usec) / 1000;
@@ -3629,15 +3604,12 @@ int hs200_execute_tuning(struct msdc_host *host, u8 *res)
 	unsigned int clk_pwdn = 0;
 	unsigned int int_en = 0;
 	void __iomem *base = host->base;
-	unsigned int dtoc = 0;
 
 	do_gettimeofday(&tm_s);
 	int_en = MSDC_READ32(MSDC_INTEN);
 	MSDC_WRITE32(MSDC_INTEN, 0);
 	MSDC_GET_FIELD(MSDC_CFG, MSDC_CFG_CKPDN, clk_pwdn);
 	MSDC_SET_FIELD(MSDC_CFG, MSDC_CFG_CKPDN, 1);
-	MSDC_GET_FIELD(SDC_CFG, SDC_CFG_DTOC, dtoc);
-	MSDC_SET_FIELD(SDC_CFG, SDC_CFG_DTOC, 3);
 
 #if HS200_OFFLINE_TUNE_ENABLE
 	if (execute_offline_tuning(host) != 0)
@@ -3652,7 +3624,6 @@ int hs200_execute_tuning(struct msdc_host *host, u8 *res)
 	/*MSDC_WRITE32(MSDC_INT, 0xffffffff);*/
 	MSDC_WRITE32(MSDC_INTEN, int_en);
 	MSDC_SET_FIELD(MSDC_CFG, MSDC_CFG_CKPDN, clk_pwdn);
-	MSDC_SET_FIELD(SDC_CFG, SDC_CFG_DTOC, dtoc);
 
 	do_gettimeofday(&tm_e);
 	tm_val = (tm_e.tv_sec - tm_s.tv_sec) * 1000 + (tm_e.tv_usec - tm_s.tv_usec) / 1000;

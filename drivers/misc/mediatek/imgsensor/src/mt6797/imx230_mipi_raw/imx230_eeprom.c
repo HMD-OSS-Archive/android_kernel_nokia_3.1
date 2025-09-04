@@ -57,11 +57,12 @@ static int last_offset = 0;
 static bool selective_read_eeprom(kal_uint16 addr, BYTE* data)
 {
 	char pu_send_cmd[2] = {(char)(addr >> 8) , (char)(addr & 0xFF) };
-    if(addr > IMX230_MAX_OFFSET)
-        return false;
-	if(iReadRegI2C(pu_send_cmd, 2, (u8*)data, 1, IMX230_EEPROM_READ_ID)<0)
+
+	if (addr > IMX230_MAX_OFFSET ||
+		iReadRegI2C(pu_send_cmd, 2, (u8 *)data, 1, IMX230_EEPROM_READ_ID) < 0)
 		return false;
-    return true;
+	else
+		return true;
 }
 
 static bool _read_imx230_eeprom(kal_uint16 addr, BYTE* data, int size ){

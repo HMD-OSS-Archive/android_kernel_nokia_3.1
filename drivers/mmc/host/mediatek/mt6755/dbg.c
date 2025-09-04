@@ -43,7 +43,7 @@
 /*#define CONFIG_MTK_EMMC_CQ_MET_USR_DEF*/
 
 #ifdef CONFIG_MT_ENG_BUILD
-#define MTK_EMMC_CQ_DEBUG
+/*#define MTK_EMMC_CQ_DEBUG*/
 /*#define CONFIG_MTK_EMMC_CQ_MET_USR_DEF*/
 #endif
 
@@ -274,17 +274,20 @@ static void msdc_init_dma_latest_address(void)
 }
 #endif
 
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-#ifdef MTK_EMMC_CQ_DEBUG
+#ifdef MTK_EMMC_CMD_DEBUG
 #define dbg_max_cnt (500)
+/* max dump size is 30KB whitch can be adjusted */
+#define MSDC_AEE_BUFFER_SIZE (30 * 1024)
 struct dbg_run_host_log {
 	unsigned long long time_sec;
 	unsigned long long time_usec;
 	int type;
 	int cmd;
 	int arg;
+	int skip;
 };
 static struct dbg_run_host_log dbg_run_host_log_dat[dbg_max_cnt];
+char msdc_aee_buffer[MSDC_AEE_BUFFER_SIZE];
 static int dbg_host_cnt;
 static int is_lock_init;
 static spinlock_t cmd_dump_lock;
@@ -292,11 +295,19 @@ static spinlock_t cmd_dump_lock;
 static unsigned int printk_cpu_test = UINT_MAX;
 struct timeval cur_tv;
 
+/* type 0: cmd, type 1 rsp */
 void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
 {
 	unsigned long long t;
 	unsigned long long nanosec_rem;
 	unsigned long flags;
+	static int last_cmd, last_arg, skip;
+	int l_skip = 0;
+	struct msdc_host *host = mmc_priv(mmc);
+
+	/* only log msdc0 */
+	if (!host || host->id != 0)
+		return;
 
 	if (!is_lock_init) {
 		spin_lock_init(&cmd_dump_lock);
@@ -304,6 +315,21 @@ void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
 	}
 
 	spin_lock_irqsave(&cmd_dump_lock, flags);
+	if (type == 1) {
+		/*skip log if last cmd rsp are the same*/
+		if (last_cmd == cmd && last_arg == arg) {
+			skip++;
+			if (dbg_host_cnt == 0)
+				dbg_host_cnt = dbg_max_cnt;
+			/*remove type = 0, command*/
+			dbg_host_cnt--;
+			goto end;
+		}
+		last_cmd = cmd;
+		last_arg = arg;
+		l_skip = skip;
+		skip = 0;
+	}
 	t = cpu_clock(printk_cpu_test);
 	nanosec_rem = do_div(t, 1000000000)/1000;
 	do_gettimeofday(&cur_tv);
@@ -312,112 +338,135 @@ void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
 	dbg_run_host_log_dat[dbg_host_cnt].type = type;
 	dbg_run_host_log_dat[dbg_host_cnt].cmd = cmd;
 	dbg_run_host_log_dat[dbg_host_cnt].arg = arg;
+	dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
 	dbg_host_cnt++;
 	if (dbg_host_cnt >= dbg_max_cnt)
 		dbg_host_cnt = 0;
+end:
 	spin_unlock_irqrestore(&cmd_dump_lock, flags);
 }
 
-void mmc_cmd_dump(struct mmc_host *mmc)
+void mmc_cmd_dump(char **buff, unsigned long *size,
+	struct mmc_host *mmc, u32 latest_cnt)
 {
-	int i;
+	int i, j;
 	int tag = -1;
+	int is_read, is_rel, is_fprg;
 	unsigned long flags;
+	unsigned long long time_sec, time_usec;
+	int type, cmd, arg, skip, cnt;
 	struct msdc_host *host;
+	u32 dump_cnt;
 
 	if (!mmc || !mmc->card)
 		return;
-
+	/* only dump msdc0 */
 	host = mmc_priv(mmc);
-
+	if (!host || host->id != 0)
+		return;
 	if (!is_lock_init) {
 		spin_lock_init(&cmd_dump_lock);
 		is_lock_init = 1;
 	}
 
-	pr_err("-------------------------------------------------------------------------------\n");
 	spin_lock_irqsave(&cmd_dump_lock, flags);
-	for (i = dbg_host_cnt; i < dbg_max_cnt; i++) {
-		if (dbg_run_host_log_dat[i].cmd == 44
-			&& (dbg_run_host_log_dat[i].type == 0)) {
-			tag = (dbg_run_host_log_dat[i].arg >> 16) & 0xf;
-			pr_err("%d [%5llu.%06llu]%2d %2d 0x%08x tag=%d type=%s %s %s\n", i,
-				dbg_run_host_log_dat[i].time_sec,
-				dbg_run_host_log_dat[i].time_usec,
-				dbg_run_host_log_dat[i].type,
-				dbg_run_host_log_dat[i].cmd,
-				dbg_run_host_log_dat[i].arg, tag,
-				((dbg_run_host_log_dat[i].arg >> 30) & 0x1) ? "read" : "write",
-				!((dbg_run_host_log_dat[i].arg >> 30) & 0x1) &&
-				((dbg_run_host_log_dat[i].arg >> 31) & 0x1) ? "rel" : NULL,
-				!((dbg_run_host_log_dat[i].arg >> 30) & 0x1) &&
-				((dbg_run_host_log_dat[i].arg >> 24) & 0x1) ? "fprg" : NULL
-				);
-		} else if ((dbg_run_host_log_dat[i].cmd == 46
-			|| dbg_run_host_log_dat[i].cmd == 47)
-			&& !dbg_run_host_log_dat[i].type) {
-			tag = (dbg_run_host_log_dat[i].arg >> 16) & 0xf;
-			pr_err("%d [%5llu.%06llu]%2d %2d 0x%08x tag=%d\n", i,
-				dbg_run_host_log_dat[i].time_sec,
-				dbg_run_host_log_dat[i].time_usec,
-				dbg_run_host_log_dat[i].type,
-				dbg_run_host_log_dat[i].cmd,
-				dbg_run_host_log_dat[i].arg, tag);
-		} else
-			pr_err("%d [%5llu.%06llu]%2d %2d 0x%08x\n", i,
-			dbg_run_host_log_dat[i].time_sec,
-			dbg_run_host_log_dat[i].time_usec,
-			dbg_run_host_log_dat[i].type,
-			dbg_run_host_log_dat[i].cmd,
-			dbg_run_host_log_dat[i].arg);
-	}
+	dump_cnt = min_t(u32, latest_cnt, dbg_max_cnt);
 
-	for (i = 0; i < dbg_host_cnt; i++) {
-		if (dbg_run_host_log_dat[i].cmd == 44
-			&& !dbg_run_host_log_dat[i].type) {
-			tag = (dbg_run_host_log_dat[i].arg >> 16) & 0xf;
-			pr_err("%d [%5llu.%06llu]%2d %2d 0x%08x tag=%d type=%s %s %s\n", i,
-				dbg_run_host_log_dat[i].time_sec,
-				dbg_run_host_log_dat[i].time_usec,
-				dbg_run_host_log_dat[i].type,
-				dbg_run_host_log_dat[i].cmd,
-				dbg_run_host_log_dat[i].arg, tag,
-				((dbg_run_host_log_dat[i].arg >> 30) & 0x1) ? "read" : "write",
-				!((dbg_run_host_log_dat[i].arg >> 30) & 0x1) &&
-				((dbg_run_host_log_dat[i].arg >> 31) & 0x1) ? "rel" : NULL,
-				!((dbg_run_host_log_dat[i].arg >> 30) & 0x1) &&
-				((dbg_run_host_log_dat[i].arg >> 24) & 0x1) ? "fprg" : NULL
-				);
-		} else if ((dbg_run_host_log_dat[i].cmd == 46
-			|| dbg_run_host_log_dat[i].cmd == 47)
-			&& !dbg_run_host_log_dat[i].type) {
-			tag = (dbg_run_host_log_dat[i].arg >> 16) & 0xf;
-			pr_err("%d [%5llu.%06llu]%2d %2d 0x%08x tag=%d\n", i,
-				dbg_run_host_log_dat[i].time_sec,
-				dbg_run_host_log_dat[i].time_usec,
-				dbg_run_host_log_dat[i].type,
-				dbg_run_host_log_dat[i].cmd,
-				dbg_run_host_log_dat[i].arg, tag);
+	i = dbg_host_cnt - 1;
+	if (i < 0)
+		i = dbg_max_cnt - 1;
+
+	for (j = 0; j < dump_cnt; j++) {
+		time_sec = dbg_run_host_log_dat[i].time_sec;
+		time_usec = dbg_run_host_log_dat[i].time_usec;
+		type = dbg_run_host_log_dat[i].type;
+		cmd = dbg_run_host_log_dat[i].cmd;
+		arg = dbg_run_host_log_dat[i].arg;
+		skip = dbg_run_host_log_dat[i].skip;
+		if (cmd == 44 && !type) {
+			cnt = arg & 0xffff;
+			tag = (arg >> 16) & 0xf;
+			is_read = (arg >> 30) & 0x1;
+			is_rel = (arg >> 31) & 0x1;
+			is_fprg = (arg >> 24) & 0x1;
+			SPREAD_PRINTF(buff, size,
+			"%04d [%5llu.%06llu]%2d %2d %08x id=%02d %s cnt=%d %d %d\n",
+				j, time_sec, time_usec,
+				type, cmd, arg, tag,
+				is_read ? "R" : "W",
+				cnt, is_rel, is_fprg);
+		} else if ((cmd == 46 || cmd == 47) && !type) {
+			tag = (arg >> 16) & 0xf;
+			SPREAD_PRINTF(buff, size,
+			"%04d [%5llu.%06llu]%2d %2d %08x id=%02d\n",
+				j, time_sec, time_usec,
+				type, cmd, arg, tag);
 		} else
-			pr_err("%d [%5llu.%06llu]%2d %2d 0x%08x\n", i,
-			dbg_run_host_log_dat[i].time_sec,
-			dbg_run_host_log_dat[i].time_usec,
-			dbg_run_host_log_dat[i].type,
-			dbg_run_host_log_dat[i].cmd,
-			dbg_run_host_log_dat[i].arg);
+			SPREAD_PRINTF(buff, size,
+			"%04d [%5llu.%06llu]%2d %2d %08x (%d)\n",
+				j, time_sec, time_usec,
+				type, cmd, arg, skip);
+		i--;
+		if (i < 0)
+			i = dbg_max_cnt - 1;
 	}
 	spin_unlock_irqrestore(&cmd_dump_lock, flags);
-	msdc_cmdq_status_print(host);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	SPREAD_PRINTF(buff, size, "areq_cnt:%d, task_id_index %08lx, cq_wait_rdy:%d\n",
+			atomic_read(&mmc->areq_cnt), mmc->task_id_index, atomic_read(&mmc->cq_wait_rdy));
+#endif
 }
+
 #else
 void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
 {
 }
 
-void mmc_cmd_dump(struct mmc_host *mmc)
+void mmc_cmd_dump(char **buff, unsigned long *size,
+	struct mmc_host *mmc, u32 latest_cnt)
 {
 }
 #endif
+
+static void msdc_dump_host_state(char **buff, unsigned long *size,
+	struct msdc_host *host)
+{
+	/* need porting */
+}
+
+static void msdc_proc_dump(u32 id)
+{
+	struct msdc_host *host = mtk_msdc_host[id];
+
+	if (host == NULL) {
+		pr_info("====== Null msdc%d, dump skipped ======\n", id);
+		return;
+	}
+
+	msdc_dump_host_state(NULL, NULL, host);
+	mmc_cmd_dump(NULL, NULL, host->mmc, 500);
+}
+
+void get_msdc_aee_buffer(unsigned long *vaddr, unsigned long *size)
+{
+	struct msdc_host *host = mtk_msdc_host[0];
+	unsigned long free_size = MSDC_AEE_BUFFER_SIZE;
+	char *buff;
+
+	if (host == NULL) {
+		pr_info("====== Null msdc, dump skipped ======\n");
+		return;
+	}
+
+	buff = msdc_aee_buffer;
+	msdc_dump_host_state(&buff, &free_size, host);
+	mmc_cmd_dump(&buff, &free_size, host->mmc, 500);
+
+	/* retrun start location */
+	*vaddr = (unsigned long)msdc_aee_buffer;
+	*size = MSDC_AEE_BUFFER_SIZE - free_size;
+}
+EXPORT_SYMBOL(get_msdc_aee_buffer);
 
 #ifdef CONFIG_MTK_EMMC_CQ_MET_USR_DEF
 void emmc_cq_state(void)
@@ -463,7 +512,6 @@ void emmc_cq_state_pr(struct mmc_host *mmc, unsigned int idx,
 	unsigned int val)
 {
 }
-#endif
 #endif
 
 void msdc_cmdq_status_print(struct msdc_host *host)
@@ -521,9 +569,6 @@ void msdc_cmdq_func(struct msdc_host *host, const int num)
 		pr_err("force enable cmdq\n");
 		host->mmc->card->ext_csd.cmdq_support = 1;
 		host->mmc->cmdq_support_changed = 1;
-		break;
-	case 2:
-		mmc_cmd_dump(host->mmc);
 		break;
 	case 3:
 		MSDC_GET_FIELD(MSDC_PAD_TUNE0, MSDC_PAD_TUNE0_CMDRDLY, a);
@@ -1699,19 +1744,16 @@ static int msdc_check_emmc_cache_status(struct msdc_host *host)
 {
 	struct mmc_card *card;
 
-	if (!host || !host->mmc || !host->mmc->card) {
-		pr_err("host, host->mmc, or host->mmc->card is invalid\n");
-		return -2;
-	}
+	BUG_ON(!host || !host->mmc || !host->mmc->card);
 
 	card = host->mmc->card;
 	if (!mmc_card_mmc(card)) {
-		pr_err("msdc%d: not eMMC card\n", host->id);
+		pr_err("host:%d is not a eMMC card\n", host->id);
 		return -2;
 	}
 
 	if (0 == card->ext_csd.cache_size) {
-		pr_err("msdc%d: cache feature not supported\n", host->id);
+		pr_err("card don't support cache feature\n");
 		return -1;
 	}
 
@@ -2460,6 +2502,12 @@ static ssize_t msdc_debug_proc_write(struct file *file, const char *buf,
 			MMC_SEND_TUNING_BLOCK_HS200);
 		do_autok_offline_tune_tx = 0;
 		mmc_release_host(host->mmc);
+	} else if (cmd == MMC_HANG_DETECT_DUMP) {
+		pr_notice("==== hang detect dump ====\n");
+		id = p1;
+		if (id >= HOST_MAX_NUM || id < 0)
+			return count;
+		msdc_proc_dump(id);
 	}
 
 out:
@@ -2494,6 +2542,77 @@ static const struct file_operations msdc_help_fops = {
 	.release = single_release,
 };
 
+#ifdef MSDC_HQA
+u32 sdio_vio18_flag, sdio_vcore1_flag, sdio_vcore2_flag;
+u32 vio18_reg, vcore1_reg, vcore2_reg;
+
+static ssize_t msdc_voltage_proc_write(struct file *file,
+	const char __user *buf, size_t count, loff_t *data)
+{
+	int ret;
+	int sscanf_num;
+
+	ret = copy_from_user(cmd_buf, buf, count);
+	if (ret < 0)
+		return -1;
+
+	cmd_buf[count] = '\0';
+	pr_err("[SD_Debug]msdc Write %s\n", cmd_buf);
+
+	sscanf_num = sscanf(cmd_buf, "%d %d %d", &sdio_vio18_flag,
+		&sdio_vcore1_flag, &sdio_vcore2_flag);
+
+	if (sscanf_num < 3)
+		return -1;
+
+	if (sdio_vio18_flag >= 1730 && sdio_vio18_flag <= 1880) {
+		/*0.01V per step*/
+		if (sdio_vio18_flag > 1800)
+			vio18_reg = 8-(sdio_vio18_flag-1800)/10;
+		else
+			vio18_reg = (1800-sdio_vio18_flag)/10;
+		pmic_config_interface(REG_VIO18_CAL, vio18_reg,
+			VIO18_CAL_MASK, VIO18_CAL_SHIFT);
+	}
+
+	/*Vcore2 is VCORE_AO*/
+	if (sdio_vcore2_flag > 900 && sdio_vcore2_flag < 1200) {
+		/*0.00625V per step*/
+		/*Originally divied by 12.5, to avoid floating-point division,
+		 amplify numerator and denominator by 4*/
+		vcore2_reg = ((sdio_vcore2_flag-600)<<2)/25;
+		pmic_config_interface(REG_VCORE_VOSEL_SW, vcore2_reg,
+			VCORE_VOSEL_SW_MASK, VCORE_VOSEL_SW_SHIFT);
+		pmic_config_interface(REG_VCORE_VOSEL_HW, vcore2_reg,
+			VCORE_VOSEL_HW_MASK, VCORE_VOSEL_HW_SHIFT);
+	}
+
+	return count;
+}
+
+static int msdc_voltage_flag_proc_read_show(struct seq_file *m, void *data)
+{
+	seq_printf(m, "vio18: 0x%d 0x%X\n", sdio_vio18_flag, vio18_reg);
+	seq_printf(m, "vcore1: 0x%d 0x%X\n", sdio_vcore1_flag,  vcore1_reg);
+	seq_printf(m, "vcore2: 0x%d 0x%X\n", sdio_vcore2_flag, vcore2_reg);
+	return 0;
+}
+
+static int msdc_voltage_flag_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, msdc_voltage_flag_proc_read_show,
+		inode->i_private);
+}
+
+static const struct file_operations msdc_voltage_flag_fops = {
+	.open = msdc_voltage_flag_proc_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.write = msdc_voltage_proc_write,
+};
+#endif
+
 #ifndef USER_BUILD_KERNEL
 #define PROC_PERM		0660
 #else
@@ -2505,7 +2624,9 @@ int msdc_debug_proc_init(void)
 	struct proc_dir_entry *prEntry;
 	kuid_t uid;
 	kgid_t gid;
-
+#ifdef MSDC_HQA
+	struct proc_dir_entry *voltage_flag;
+#endif
 	uid = make_kuid(&init_user_ns, 0);
 	gid = make_kgid(&init_user_ns, 1001);
 
@@ -2524,6 +2645,20 @@ int msdc_debug_proc_init(void)
 		pr_err("[%s]: create /proc/msdc_help\n", __func__);
 	else
 		pr_err("[%s]: failed to create /proc/msdc_help\n", __func__);
+
+#ifdef MSDC_HQA
+	voltage_flag = proc_create("msdc_voltage_flag", PROC_PERM, NULL,
+		&msdc_voltage_flag_fops);
+
+	if (voltage_flag) {
+		proc_set_user(voltage_flag, uid, gid);
+		pr_err("[%s]: successfully create /proc/msdc_voltage_flag\n",
+			__func__);
+	} else {
+		pr_err("[%s]: failed to create /proc/msdc_voltage_flag\n",
+			__func__);
+	}
+#endif
 
 #ifdef MSDC_DMA_ADDR_DEBUG
 	msdc_init_dma_latest_address();

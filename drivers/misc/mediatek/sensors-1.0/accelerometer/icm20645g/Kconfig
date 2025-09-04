@@ -3,6 +3,6 @@ config MTK_ICM20645G
 	default n
 	help
 	  It support different accelerometer sensor.
-          If this option is set,
+	  If this option is set,
 	  it will support
-          ICM20645 Accelerometer.
+	  ICM20645 Accelerometer.

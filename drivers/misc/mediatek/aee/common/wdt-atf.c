@@ -47,9 +47,11 @@
 #include <linux/irqchip/mt-eic.h>
 #endif
 #include <mrdump_private.h>
+#include "mtk_hps_external.h"
 
 #define THREAD_INFO(sp) ((struct thread_info *) \
 				((unsigned long)(sp) & ~(THREAD_SIZE - 1)))
+
 
 #define WDT_PERCPU_LOG_SIZE	2048
 #define WDT_LOG_DEFAULT_SIZE	4096
@@ -501,6 +503,8 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	/* avoid lock prove to dump_stack in __debug_locks_off() */
 	xchg(&debug_locks, 0);
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_DONE);
+	/* Dump hot plug kernel backtrace */
+	hps_dump_task_info();
 	BUG();
 }
 

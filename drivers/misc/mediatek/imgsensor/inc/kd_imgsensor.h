@@ -218,6 +218,7 @@
 #define S5K3L6_SENSOR_ID                        0x30C6
 #define S5K4H7YX_SENSOR_ID                      0x487b
 #define S5K4H7YXKC_SENSOR_ID                    0x487c
+#define S5K4H7YXST_SENSOR_ID                    0x487d
 /*HI*/
 #define HI841_SENSOR_ID                         0x0841
 #define HI707_SENSOR_ID                         0x00b8
@@ -395,6 +396,7 @@
 #define SENSOR_DRVNAME_S5K3L6_MIPI_RAW          "s5k3l6_mipi_raw"
 #define SENSOR_DRVNAME_S5K4H7YX_MIPI_RAW        "s5k4h7yxmipiraw"
 #define SENSOR_DRVNAME_S5K4H7YXKC_MIPI_RAW      "s5k4h7yxkcmipiraw"
+#define SENSOR_DRVNAME_S5K4H7YXST_MIPI_RAW      "s5k4h7yxstmipiraw"
 /*HI*/
 #define SENSOR_DRVNAME_HI841_MIPI_RAW           "hi841mipiraw"
 #define SENSOR_DRVNAME_HI707_YUV                "hi707yuv"

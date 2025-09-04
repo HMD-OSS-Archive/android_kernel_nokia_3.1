@@ -249,8 +249,10 @@ void mtk_wdt_restart(enum wd_restart_type type)
 
 	if (!toprgu_base) {
 		toprgu_base = of_iomap(np_rgu, 0);
-		if (!toprgu_base)
+		if (!toprgu_base) {
 			pr_debug("RGU iomap failed\n");
+			return;
+		}
 		/* pr_debug("RGU base: 0x%p  RGU irq: %d\n", toprgu_base, wdt_irq_id); */
 	}
 #endif
@@ -270,7 +272,7 @@ void mtk_wdt_restart(enum wd_restart_type type)
 	#ifdef CONFIG_KICK_SPM_WDT
 		spm_wdt_restart_timer_nolock();
 	#else
-		*(volatile u32 *)(MTK_WDT_RESTART) = MTK_WDT_RESTART_KEY;
+		mt_reg_sync_writel(MTK_WDT_RESTART_KEY, MTK_WDT_RESTART);
 	#endif
 	} else
 		pr_debug("WDT:[mtk_wdt_restart] type=%d error pid =%d\n", type, current->pid);
@@ -448,6 +450,7 @@ int mtk_wdt_swsysret_config(int bit, int set_value)
 	pr_debug("after set wdt_sys_val =%x,wdt_sys_val=%x\n", __raw_readl(MTK_WDT_SWSYSRST), wdt_sys_val);
 	return 0;
 }
+EXPORT_SYMBOL(mtk_wdt_swsysret_config);
 
 int mtk_wdt_request_en_set(int mark_bit, WD_REQ_CTL en)
 {
@@ -613,6 +616,7 @@ void mtk_wd_suspend(void){}
 void mtk_wd_resume(void){}
 void wdt_dump_reg(void){}
 int mtk_wdt_swsysret_config(int bit, int set_value) { return 0; }
+EXPORT_SYMBOL(mtk_wdt_swsysret_config);
 int mtk_wdt_request_mode_set(int mark_bit, WD_REQ_MODE mode) {return 0; }
 int mtk_wdt_request_en_set(int mark_bit, WD_REQ_CTL en) {return 0; }
 void mtk_wdt_set_c2k_sysrst(unsigned int flag) {}

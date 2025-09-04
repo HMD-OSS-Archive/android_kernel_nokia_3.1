@@ -105,7 +105,7 @@ static const unsigned char rt5081_torch_level[RT5081_LEVEL_TORCH] = {
 */
 static const unsigned char rt5081_torch_level[RT5081_LEVEL_TORCH] = {
 //	0x30, 0x40
-        0x0A, 0x04
+        0x0A, 0x02
 };
 /*
 static const unsigned char rt5081_strobe_level[RT5081_LEVEL_FLASH] = {
@@ -224,7 +224,6 @@ static int rt5081_set_level_ch1(int level)
 {
 	level = rt5081_verify_level(level);
 	rt5081_level_ch1 = level;
-
 	if (!flashlight_dev_ch1) {
 		pr_err("Failed to set ht level since no flashlight device.\n");
 		return -1;

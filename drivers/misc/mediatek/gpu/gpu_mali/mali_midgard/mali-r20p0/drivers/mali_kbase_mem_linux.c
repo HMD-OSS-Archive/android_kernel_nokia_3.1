@@ -334,8 +334,7 @@ unsigned long kbase_mem_evictable_reclaim_count_objects(struct shrinker *s,
 
 	kctx = container_of(s, struct kbase_context, reclaim);
 
-	if (!mutex_trylock(&kctx->jit_evict_lock))
-		return pages;
+	mutex_lock(&kctx->jit_evict_lock);
 
 	list_for_each_entry(alloc, &kctx->evict_list, evict_node)
 		pages += alloc->nents;
@@ -373,9 +372,7 @@ unsigned long kbase_mem_evictable_reclaim_scan_objects(struct shrinker *s,
 	unsigned long freed = 0;
 
 	kctx = container_of(s, struct kbase_context, reclaim);
-
-	if (!mutex_trylock(&kctx->jit_evict_lock))
-		return freed;
+	mutex_lock(&kctx->jit_evict_lock);
 
 	list_for_each_entry_safe(alloc, tmp, &kctx->evict_list, evict_node) {
 		int err;

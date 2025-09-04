@@ -54,10 +54,6 @@ static uint32_t in_lowmem;
 #include <linux/highmem.h>
 #endif
 
-#ifdef CONFIG_COMPACTION
-#include <linux/compaction.h>
-#endif
-
 #ifdef CONFIG_MTK_ION
 #include "mtk/ion_drv.h"
 #endif
@@ -92,6 +88,8 @@ static DEFINE_SPINLOCK(lowmem_shrink_lock);
 #define CREATE_TRACE_POINTS
 #include "trace/lowmemorykiller.h"
 
+#include "internal.h"
+
 static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[9] = {
 	0,
@@ -120,46 +118,6 @@ static unsigned long lowmem_deathpending_timeout;
 		if (lowmem_debug_level >= (level))	\
 			pr_info(x);			\
 	} while (0)
-
-/* Force LMK to kill process if lower zones are under fragmentation */
-static short aggressive_lmk_for_frag(struct shrink_control *sc, short adj)
-{
-#ifdef CONFIG_COMPACTION
-	enum zone_type high_zoneidx;
-	struct pglist_data *pgdat;
-	struct zone *z;
-	enum zone_type zoneidx;
-	unsigned long file_frag = 0, free_frag = 0;
-
-	if (current_is_kswapd())
-		return adj;
-
-	high_zoneidx = gfp_zone(sc->gfp_mask);
-	if (high_zoneidx > ZONE_NORMAL)
-		return adj;
-
-	/* If file >= free, just return */
-	for_each_online_pgdat(pgdat) {
-		for (zoneidx = 0; zoneidx <= high_zoneidx; zoneidx++) {
-			z = pgdat->node_zones + zoneidx;
-			file_frag += zone_page_state(z, NR_FILE_PAGES);
-			free_frag += zone_page_state(z, NR_FREE_PAGES);
-		}
-	}
-	if (file_frag >= free_frag)
-		return adj;
-
-	/* Is there any zone under fragmentation for THREAD_SIZE_ORDER */
-	for_each_online_pgdat(pgdat) {
-		for (zoneidx = 0; zoneidx <= high_zoneidx; zoneidx++) {
-			z = pgdat->node_zones + zoneidx;
-			if (fragmentation_index(z, THREAD_SIZE_ORDER) > sysctl_extfrag_threshold)
-				return 0;
-		}
-	}
-#endif
-	return adj;
-}
 
 static unsigned long lowmem_count(struct shrinker *s,
 				  struct shrink_control *sc)
@@ -195,7 +153,9 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 
 	int print_extra_info = 0;
 	static unsigned long lowmem_print_extra_info_timeout;
+	enum zone_type high_zoneidx = gfp_zone(sc->gfp_mask);
 	int d_state_is_found = 0;
+	int unreclaimable_zones = 0;
 #if defined(CONFIG_SWAP) && defined(CONFIG_MTK_GMO_RAM_OPTIMIZE)
 	int to_be_aggressive = 0;
 	unsigned long swap_pages = 0;
@@ -223,6 +183,61 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	if (!spin_trylock(&lowmem_shrink_lock)) {
 		lowmem_print(4, "lowmem_shrink lock failed\n");
 		return SHRINK_STOP;
+	}
+
+	/*
+	 * Check whether it is caused by low memory in lower zone(s)!
+	 * This will help solve over-reclaiming situation while total number
+	 * of free pages is enough, but lower zone(s) is(are) under low memory.
+	 */
+	if (high_zoneidx < MAX_NR_ZONES - 1) {
+		struct pglist_data *pgdat;
+		struct zone *z;
+		enum zone_type zoneidx;
+		unsigned long accumulated_pages = 0, scale = totalram_pages;
+		int new_other_free = 0, new_other_file = 0;
+		int memory_pressure = 0;
+
+		/* Go through all memory nodes */
+		for_each_online_pgdat(pgdat) {
+			for (zoneidx = 0; zoneidx <= high_zoneidx; zoneidx++) {
+				z = pgdat->node_zones + zoneidx;
+				accumulated_pages += z->managed_pages;
+				new_other_free += zone_page_state(z, NR_FREE_PAGES);
+				new_other_free -= high_wmark_pages(z);
+				new_other_file += zone_page_state(z, NR_FILE_PAGES);
+				new_other_file -= zone_page_state(z, NR_SHMEM);
+
+				/* Compute memory pressure level */
+				memory_pressure += zone_page_state(z, NR_ACTIVE_FILE) +
+					zone_page_state(z, NR_INACTIVE_FILE) +
+					zone_page_state(z, NR_ACTIVE_ANON) +
+					zone_page_state(z, NR_INACTIVE_ANON) +
+					new_other_free;
+
+				/* Check whether there is any unreclaimable memory zone */
+				if (populated_zone(z) && !zone_reclaimable(z))
+					unreclaimable_zones++;
+			}
+		}
+
+		/*
+		 * Update if we go through ONLY lower zone(s) ACTUALLY
+		 * and scale in totalram_pages
+		 */
+		if (totalram_pages > accumulated_pages) {
+			do_div(scale, accumulated_pages);
+			if (totalram_pages > accumulated_pages * scale)
+				scale += 1;
+			new_other_free *= scale;
+			new_other_file *= scale;
+		}
+
+		/* Update if not kswapd or "being kswapd and high memory pressure" */
+		if (!current_is_kswapd() || (current_is_kswapd() && memory_pressure < 0)) {
+			other_free = new_other_free;
+			other_file = new_other_file;
+		}
 	}
 
 	/* Let other_free be positive or zero */
@@ -272,8 +287,9 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		}
 	}
 
-	/* Check whether the system is under fragmentation */
-	min_score_adj = aggressive_lmk_for_frag(sc, min_score_adj);
+	/* Promote its priority */
+	if (unreclaimable_zones > 0)
+		min_score_adj = lowmem_adj[0];
 
 	/* If in CPU hotplugging, let LMK be more aggressive */
 	if (in_cpu_hotplugging) {

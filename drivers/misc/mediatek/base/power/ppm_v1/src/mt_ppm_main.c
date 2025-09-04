@@ -420,6 +420,11 @@ tbl_lookup_done:
 
 	index = ppm_get_table_idx_by_pwr(new_state, req->power_budget);
 #endif
+
+	/* skip due to request power is not equal to min_power to avoid all cluster max are 0 issue */
+	if (new_state == PPM_POWER_STATE_NONE && req->power_budget != ppm_main_info.min_power_budget)
+		return;
+
 	if (index != -1) {
 		for (i = 0; i < req->cluster_num; i++) {
 			req->limit[i].max_cpu_core =

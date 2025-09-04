@@ -407,6 +407,15 @@ void rtc_mark_ftm(void)
 	spin_unlock_irqrestore(&rtc_lock, flags);
 }
 
+void rtc_mark_charge(u16 val)
+{
+	unsigned long flags;
+	rtc_xinfo("rtc_mark_charge\n");
+	spin_lock_irqsave(&rtc_lock, flags);
+	hal_rtc_set_spare_register(RTC_SPAR0_FIH_CHARGE, val);
+	spin_unlock_irqrestore(&rtc_lock, flags);
+}
+
 void rtc_mark_normal(void)
 {
 	unsigned long flags;
@@ -416,14 +425,6 @@ void rtc_mark_normal(void)
 	spin_unlock_irqrestore(&rtc_lock, flags);
 }
 
-void rtc_mark_charge(u16 val)
-{
-	unsigned long flags;
-	rtc_xinfo("rtc_mark_charge\n");
-	spin_lock_irqsave(&rtc_lock, flags);
-	hal_rtc_set_spare_register(RTC_SPAR0_FIH_CHARGE, val);
-	spin_unlock_irqrestore(&rtc_lock, flags);
-}
 void rtc_mark_meta(void)
 {
 	unsigned long flags;

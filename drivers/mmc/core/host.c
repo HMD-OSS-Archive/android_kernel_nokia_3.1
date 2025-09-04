@@ -632,7 +632,6 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 
 	init_waitqueue_head(&host->cmp_que);
 	init_waitqueue_head(&host->cmdq_que);
-
 #endif
 	return host;
 

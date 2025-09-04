@@ -174,6 +174,16 @@ PowerUp PowerOnList = {
 	   {RST, Vol_High, 1},
 	   },
 	  },
+	 {SENSOR_DRVNAME_S5K4H7YXST_MIPI_RAW,
+	  {
+	   {SensorMCLK, Vol_High, 1},
+	   {DOVDD, Vol_1800, 1},
+	   {AVDD, Vol_2800, 1},
+	   {DVDD, Vol_1220, 2},
+	   {RST, Vol_Low, 1},
+	   {RST, Vol_High, 1},
+	   },
+	  },
 	 /* add new sensor before this line */
 	 {NULL,},
 	 }

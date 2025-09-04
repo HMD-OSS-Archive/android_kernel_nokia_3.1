@@ -94,6 +94,7 @@ typedef struct {
 #define JPEG_WRN pr_warn
 #define JPEG_ERR pr_err
 #define JPEG_VEB pr_err
+#define JPEG_WRN_LIMIT printk_ratelimited
 
 /* /////// JPEG Driver Decoder /////// */
 /*  */

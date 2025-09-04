@@ -1086,6 +1086,14 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.codec_name = MT_SOC_CODEC_NAME,
 	},
 	{
+		.name = "DEEP_BUFFER_DL_OUTPUT",
+		.stream_name = MT_SOC_DEEP_BUFFER_DL_STREAM_NAME,
+		.cpu_dai_name = "snd-soc-dummy-dai",
+		.platform_name  = MT_SOC_DEEP_BUFFER_DL_PCM,
+		.codec_dai_name = MT_SOC_CODEC_DEEPBUFFER_TX_DAI_NAME,
+		.codec_name = MT_SOC_CODEC_NAME,
+	},
+	{
 		.name = "DL1AWBCAPTURE",
 		.stream_name = MT_SOC_DL1_AWB_RECORD_STREAM_NAME,
 		.cpu_dai_name   = MT_SOC_DL1AWB_NAME,
@@ -1229,14 +1237,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.cpu_dai_name	= "snd-soc-dummy-dai",
 		.platform_name	= "snd-soc-dummy",
 		.codec_dai_name = MT_SOC_CODEC_OFFLOAD_NAME,
-		.codec_name = MT_SOC_CODEC_NAME,
-	},
-	{
-		.name = "PCM_ANC",
-		.stream_name = MT_SOC_ANC_STREAM_NAME,
-		.cpu_dai_name   = MT_SOC_ANC_NAME,
-		.platform_name  = MT_SOC_ANC_PCM,
-		.codec_dai_name = MT_SOC_CODEC_ANC_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
 	},
 	{

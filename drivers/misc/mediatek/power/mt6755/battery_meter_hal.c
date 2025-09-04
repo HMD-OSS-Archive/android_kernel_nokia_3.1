@@ -1364,7 +1364,6 @@ static signed int fgauge_meta_cali_car_tune_value(void *data)
 
 		if (dvalue != 0)
 			cali_car_tune = g_meta_input_cali_current * 1000 / dvalue;
-
 			/* 1000 base, so multiple by 1000*/
 
 		pr_err("[777]dvalue %d batt_meter_cust_data.r_fg_value %d cali_car_tune %d\n",

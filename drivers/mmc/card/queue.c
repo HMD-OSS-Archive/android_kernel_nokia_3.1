@@ -207,14 +207,13 @@ fetch_done:
 				down(&mq->thread_sem);
 			} else {
 				cmdq_full = 0;
-				/* wait when queue full */
+				/* call schedule when queue full */
 				tmo = schedule_timeout(HZ);
 				if (!tmo)
 					pr_info("%s:sched_tmo,areq_cnt=%d\n",
 						__func__,
 						atomic_read(&mq->card->host->areq_cnt));
 			}
-
 #else
 			up(&mq->thread_sem);
 			schedule();

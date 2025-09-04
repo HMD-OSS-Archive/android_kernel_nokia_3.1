@@ -137,17 +137,17 @@ const char musb_driver_name[] = MUSB_DRIVER_NAME;
 struct musb *_mu3d_musb = NULL;
 
 
-u32 debug_level = K_ALET | K_CRIT | K_ERR | K_WARNIN /* | K_NOTICE | K_INFO */;
-u32 fake_CDP = 0;
+int debug_level = K_ALET | K_CRIT | K_ERR | K_WARNIN /* | K_NOTICE | K_INFO */;
+int fake_CDP = 0;
 
-module_param(debug_level, int, 0644);
+module_param(debug_level, int, 0400);
 MODULE_PARM_DESC(debug_level, "Debug Print Log Lvl");
-module_param(fake_CDP, int, 0644);
+module_param(fake_CDP, int, 0400);
 
 #ifdef EP_PROFILING
-u32 is_prof = 1;
+int is_prof = 1;
 
-module_param(is_prof, int, 0644);
+module_param(is_prof, int, 0400);
 MODULE_PARM_DESC(is_prof, "profiling each EP");
 #endif
 
@@ -169,7 +169,7 @@ unsigned int musb_speed = 0;
 #else
 unsigned int musb_speed = 1;
 #endif
-module_param_named(speed, musb_speed, uint, S_IRUGO | S_IWUSR);
+module_param_named(speed, musb_speed, uint, 0644);
 MODULE_PARM_DESC(debug, "USB speed configuration. default = 1, spuper speed.");
 #endif
 
@@ -1112,17 +1112,20 @@ static void musb_shutdown(struct platform_device *pdev)
 	unsigned long flags;
 
 	pm_runtime_get_sync(musb->controller);
-	spin_lock_irqsave(&musb->lock, flags);
-	musb_platform_disable(musb);
-	musb_generic_disable();
-	spin_unlock_irqrestore(&musb->lock, flags);
 
 #ifndef CONFIG_USBIF_COMPLIANCE
 	if (!is_otg_enabled(musb) && is_host_enabled(musb))
 		usb_remove_hcd(musb_to_hcd(musb));
 #endif
 
-	os_writel(U3D_DEVICE_CONTROL, 0);
+	if (musb->is_active) {
+		spin_lock_irqsave(&musb->lock, flags);
+		musb_platform_disable(musb);
+		musb_generic_disable();
+		os_writel(U3D_DEVICE_CONTROL, 0);
+		spin_unlock_irqrestore(&musb->lock, flags);
+	}
+
 	musb_platform_exit(musb);
 
 	pm_runtime_put(musb->controller);
@@ -2892,7 +2895,7 @@ static struct kernel_param_ops mu3d_force_on_param_ops = {
 	.set = set_mu3d_force_on,
 	.get = param_get_int,
 };
-module_param_cb(mu3d_force_on, &mu3d_force_on_param_ops, &mu3d_force_on, 0644);
+module_param_cb(mu3d_force_on, &mu3d_force_on_param_ops, &mu3d_force_on, 0400);
 
 /*-------------------------------------------------------------------------*/
 #ifdef CONFIG_USBIF_COMPLIANCE

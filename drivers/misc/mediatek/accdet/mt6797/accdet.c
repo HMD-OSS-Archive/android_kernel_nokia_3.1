@@ -1495,17 +1495,37 @@ static ssize_t store_accdet_dump_register(struct device_driver *ddri, const char
 
 static ssize_t store_accdet_set_headset_mode(struct device_driver *ddri, const char *buf, size_t count)
 {
+	int ret = 0;
+	int tmp_headset_mode = 0;
 
-	char value;
-	int ret;
-
-	ret = sscanf(buf, "%s", &value);
-	if (ret != 1) {
-		ACCDET_DEBUG("accdet: Invalid values\n");
+	if (strlen(buf) < 1) {
+		ACCDET_INFO("[%s] Invalid input!!\n",  __func__);
 		return -EINVAL;
 	}
 
-	ACCDET_DEBUG("[Accdet]store_accdet_set_headset_mode value =%d\n", value);
+	ret = kstrtoint(buf, 10, &tmp_headset_mode);
+	if (ret < 0)
+		return ret;
+
+	ACCDET_DEBUG("[%s]get accdet mode: %d\n", __func__, tmp_headset_mode);
+	switch (tmp_headset_mode&0x0F) {
+	case 1:
+		ACCDET_INFO("[%s]Don't support accdet mode_1 to configure!!\n", __func__);
+		/* accdet_dts_data.accdet_mic_mode = tmp_headset_mode; */
+		/* accdet_init(); */
+		break;
+	case 2:
+		accdet_dts_data.accdet_mic_mode = tmp_headset_mode;
+		accdet_init();
+		break;
+	case 6:
+		accdet_dts_data.accdet_mic_mode = tmp_headset_mode;
+		accdet_init();
+		break;
+	default:
+		ACCDET_INFO("[%s]Not support accdet mode: %d\n", __func__, tmp_headset_mode);
+		break;
+	}
 
 	return count;
 }

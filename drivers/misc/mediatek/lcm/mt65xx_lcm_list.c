@@ -34,6 +34,13 @@ LCM_DSI_MODE_CON lcm_dsi_mode;
 #endif
 
 LCM_DRIVER *lcm_driver_list[] = {
+#if defined(ILI9881C_HD_DSI_VDO_ILITEK_NT50358_3LANE)
+	&ili9881c_hd_dsi_vdo_ilitek_nt50358_3lane_lcm_drv,
+#endif
+
+#if defined(ILI9881C_HD_DSI_VDO_ILITEK_NT50358)
+	&ili9881c_hd_dsi_vdo_ilitek_nt50358_lcm_drv,
+#endif
 #if defined(NT36672_FHD_DSI_VDO_RT5081)
 	&nt36672_fhd_dsi_vdo_rt5081_lcm_drv,
 #endif
@@ -853,6 +860,10 @@ LCM_DRIVER *lcm_driver_list[] = {
 	&r63417_fhd_dsi_cmd_truly_nt50358_qhd_lcm_drv,
 #endif
 
+#if defined(R63417_FHD_DSI_CMD_TRULY_NT50358_FWVGA)
+	&r63417_fhd_dsi_cmd_truly_nt50358_fwvga_lcm_drv,
+#endif
+
 #if defined(R63417_FHD_DSI_VDO_TRULY_NT50358)
 	&r63417_fhd_dsi_vdo_truly_nt50358_lcm_drv,
 #endif
@@ -875,10 +886,6 @@ LCM_DRIVER *lcm_driver_list[] = {
 
 #if defined(R63419_FHD_TRULY_PHANTOM_2K_CMD_OK)
 	&r63419_fhd_truly_phantom_lcm_drv,
-#endif
-
-#if defined(R63419_FHDP_TRULY_PHANTOM_2K_CMD_OK)
-	&r63419_fhdp_truly_phantom_lcm_drv,
 #endif
 
 #if defined(R63419_FHD_TRULY_PHANTOM_2K_CMD_OK_MT6797)
@@ -924,6 +931,11 @@ LCM_DRIVER *lcm_driver_list[] = {
 #if defined(SY20810800210132_WUXGA_DSI_VDO)
 	&sy20810800210132_wuxga_dsi_vdo_lcm_drv,
 #endif
+
+#if defined(OPPO_TIANMA_TD4310_FHDP_DSI_VDO_NT50358)
+	&oppo_tianma_td4310_fhdp_dsi_vdo_nt50358_lcm_drv,
+#endif
+
 
 #if defined(OTM1906B_FHD_DSI_CMD_JDI_TPS65132)
 	&otm1906b_fhd_dsi_cmd_jdi_tps65132_lcm_drv,
@@ -1050,6 +1062,10 @@ LCM_DRIVER *lcm_driver_list[] = {
 #if defined(AUO_WUXGA_DSI_VDO)
 	&auo_wuxga_dsi_vdo_lcm_drv,
 #endif
+
+#if defined(R63419_FHDP_TRULY_PHANTOM_2K_CMD_OK)
+	&r63419_fhdp_truly_phantom_lcm_drv,
+#endif
 };
 
 unsigned char lcm_name_list[][128] = {
@@ -1083,6 +1099,10 @@ unsigned char lcm_name_list[][128] = {
 
 #if defined(R63417_FHD_DSI_CMD_TRULY_NT50358_QHD)
 	"r63417_fhd_dsi_cmd_truly_nt50358_qhd_drv",
+#endif
+
+#if defined(R63417_FHD_DSI_CMD_TRULY_NT50358_FWVGA)
+	"r63417_fhd_dsi_cmd_truly_nt50358_fwvga_drv",
 #endif
 
 #if defined(R63417_FHD_DSI_VDO_TRULY_NT50358)

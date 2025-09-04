@@ -745,14 +745,14 @@ void ion_mm_heap_memory_detail(void)
 skip_client_entry:
 
 	ION_PRINT_LOG_OR_SEQ(NULL,
-			     "%s %8s %s %16s %10s %10s %10s %10s %32s\n",
+			     "%s %8s %s %16s %6s %10s %10s %10s %10s %32s\n",
 			     "buffer    ", "size",
-			     "pid(alloc_pid)", "comm(client)", "v1", "v2", "v3", "v4", "dbg_name");
+			     "pid(alloc_pid)", "comm(client)", "heapid", "v1", "v2", "v3", "v4", "dbg_name");
 
 	if (mutex_trylock(&dev->buffer_lock)) {
 		char seq_log[384];
 		int seq_log_count = 0;
-		char seq_fmt[] = "0x%p %10zu %5d(%5d) %16s %10u %10u %10u %10u %48s  ";
+		char seq_fmt[] = "0x%p %10zu %5d(%5d) %16s %6d %10u %10u %10u %10u %48s  ";
 
 		memset(seq_log, 0, 384);
 		for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
@@ -783,9 +783,9 @@ skip_client_entry:
 				seq_log_count++;
 				sprintf(seq_log + strlen(seq_log), seq_fmt,
 					buffer, buffer->size,
-					buffer->pid, bug_info->pid, buffer->task_comm,
+					buffer->pid, bug_info->pid, buffer->task_comm, buffer->heap->id,
 					pdbg->value1, pdbg->value2, pdbg->value3, pdbg->value4,
-					cam_heap ? "ion_camera_heap" : pdbg->dbg_name);
+					pdbg->dbg_name);
 
 				if ((seq_log_count % 2) == 0) {
 					ION_PRINT_LOG_OR_SEQ(NULL, "%s\n", seq_log);
@@ -845,8 +845,7 @@ struct ion_heap *ion_mm_heap_create(struct ion_platform_heap *unused)
 		gfp_t gfp_flags = order_gfp_flags[i];
 
 		if (unused->id == ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA)
-			gfp_flags |= (__GFP_HIGHMEM | __GFP_CMA);
-
+			gfp_flags |= (__GFP_HIGHMEM | __GFP_MOVABLE);
 
 		pool = ion_page_pool_create(gfp_flags, orders[i]);
 		if (!pool)

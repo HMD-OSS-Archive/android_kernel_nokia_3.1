@@ -3312,11 +3312,22 @@ inline static int  adopt_CAMERA_HW_FeatureControl(void *pBuf)
 
 	case SENSOR_FEATURE_GET_PDAF_DATA:
 		{
+#define PDAF_DATA_SIZE 4096
 			char *pPdaf_data = NULL;
 
 			unsigned long long *pFeaturePara_64=(unsigned long long *) pFeaturePara;
 			void *usr_ptr = (void *)(uintptr_t)(*(pFeaturePara_64 + 1));
 			#if 1
+			kal_uint32 buf_sz = (kal_uint32) (*(pFeaturePara_64 + 2));
+
+			/* buffer size exam */
+			if (buf_sz > PDAF_DATA_SIZE) {
+				kfree(pFeaturePara);
+				PK_ERR(" buffer size (%u) can't larger than %d bytes\n",
+					  buf_sz, PDAF_DATA_SIZE);
+				return -EINVAL;
+			}
+
 			pPdaf_data = kmalloc(sizeof(char) * PDAF_DATA_SIZE, GFP_KERNEL);
 			if (pPdaf_data == NULL) {
 				kfree(pFeaturePara);
@@ -3340,10 +3351,9 @@ inline static int  adopt_CAMERA_HW_FeatureControl(void *pBuf)
 				PK_DBG("[CAMERA_HW]ERROR:NULL g_pSensorFunc\n");
 			}
 
-			if (copy_to_user
-			    ((void __user *)usr_ptr, (void *)pPdaf_data,
-			     (kal_uint32) (*(pFeaturePara_64 + 2)))) {
-				PK_DBG("[CAMERA_HW]ERROR: copy_to_user fail \n");
+			if (copy_to_user((void __user *)usr_ptr,
+					 (void *)pPdaf_data, buf_sz)) {
+				PK_DBG("[CAMERA_HW]ERROR: copy_to_user fail\n");
 			}
 			kfree(pPdaf_data);
 			*(pFeaturePara_64 + 1) =(uintptr_t) usr_ptr;
@@ -3728,14 +3738,15 @@ bool _hwPowerOn(PowerType type, int powerVolt)
 	reg = regMain2VCAMD;
     } else if (type == MAIN2_DOVDD) {
 	reg = regMain2VCAMIO;
-    }else
+    } else {
     	return ret;
+    }
 
 	if (!IS_ERR(reg)) {
 		if (regulator_set_voltage(reg , powerVolt, powerVolt) != 0) {
 			PK_DBG("[_hwPowerOn]fail to regulator_set_voltage, powertype:%d powerId:%d\n", type, powerVolt);
 			return ret;
-	}
+	    }
 		if (regulator_enable(reg) != 0) {
 			PK_DBG("[_hwPowerOn]fail to regulator_enable, powertype:%d powerId:%d\n", type, powerVolt);
 	    return ret;
@@ -5251,12 +5262,12 @@ static int proc_set_pdaf_type_open(struct inode *inode, struct file *file)
     return single_open(file, pdaf_type_info_read, NULL);
 };
 
-	
+
 static ssize_t  proc_set_pdaf_type_write(struct file *file, const char *buffer, size_t count, loff_t *data)
 {
     char regBuf[64] = {'\0'};
     u32 u4CopyBufSize = (count < (sizeof(regBuf) - 1)) ? (count) : (sizeof(regBuf) - 1);
-	
+
     if( copy_from_user(regBuf, buffer, u4CopyBufSize))
     {
         return -EFAULT;

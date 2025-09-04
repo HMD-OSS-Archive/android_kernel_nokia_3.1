@@ -484,7 +484,7 @@ static void hdr_write_shutter(kal_uint16 le, kal_uint16 se)
         iRation = 1;
 
 	/*set ration for auto */
-	iRation = 0x100 * iRation;
+		iRation = 0x100 * iRation;
 #if defined(ENABLE_WDR_AUTO_RATION)
     /*LE / SE ration ,  0x218/0x21a =  LE Ration*/
     /*0x218 =0x400, 0x21a=0x100, LE/SE = 4x*/

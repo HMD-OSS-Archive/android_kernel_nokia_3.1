@@ -198,7 +198,7 @@ static int hps_algo_heavytsk_det(void)
 	mutex_unlock(&hps_ctxt.para_lock);
 	return ret;
 }
-#if 0
+
 static int hps_algo_check_criteria(void)
 {
 	int ret, i;
@@ -221,7 +221,7 @@ static int hps_algo_check_criteria(void)
 		hps_warn("[Info]Condition break!!\n");
 	return ret;
 }
-#endif
+
 static int hps_algo_do_cluster_action(unsigned int cluster_id)
 {
 	unsigned int cpu, target_cores, online_cores, cpu_id_min, cpu_id_max;
@@ -235,10 +235,8 @@ static int hps_algo_do_cluster_action(unsigned int cluster_id)
 		for (cpu = cpu_id_min; cpu <= cpu_id_max; ++cpu) {
 			if (hps_get_break_en() != 0)
 				return 1;
-#if 0
 			if (hps_algo_check_criteria() == 1)
 				return 1;
-#endif
 			if (!cpu_online(cpu)) {	/* For CPU offline */
 				if (cpu % 4 == 0)
 					hps_cpu_up(cpu);
@@ -256,10 +254,8 @@ static int hps_algo_do_cluster_action(unsigned int cluster_id)
 		for (cpu = cpu_id_max; cpu >= cpu_id_min; --cpu) {
 			if (hps_get_break_en() != 0)
 				return 1;
-#if 0
 			if (hps_algo_check_criteria() == 1)
 				return 1;
-#endif
 			if (cpu_online(cpu)) {
 				if (cpu % 4 == 0)
 					hps_cpu_down(cpu);
@@ -285,7 +281,7 @@ unsigned int hps_get_cluster_cpus(unsigned int cluster_id)
 	return cpumask_weight(&cpus);
 }
 
-void hps_check_base_limit(struct hps_sys_struct *hps_sys)
+void hps_check_base_limit(struct hps_sys_t *hps_sys)
 {
 	int i;
 
@@ -301,7 +297,7 @@ void hps_check_base_limit(struct hps_sys_struct *hps_sys)
 	mutex_unlock(&hps_ctxt.para_lock);
 }
 
-int hps_cal_core_num(struct hps_sys_struct *hps_sys, int core_val, int base_val)
+int hps_cal_core_num(struct hps_sys_t *hps_sys, int core_val, int base_val)
 {
 	int i, cpu, root_cluster;
 
@@ -343,7 +339,7 @@ out:				/* Add base value of per-cluster by default */
 	return 0;
 }
 
-void hps_define_root_cluster(struct hps_sys_struct *hps_sys)
+void hps_define_root_cluster(struct hps_sys_t *hps_sys)
 {
 	int i;
 
@@ -534,6 +530,7 @@ void hps_algo_main(void)
 HPS_END:
 	if (action_print || hrtbt_dbg) {
 		int online, target, ref_limit, ref_base, criteria_limit, criteria_base, hvytsk;
+
 		if (0 == get_efuse_status())
 			hps_sys.action_id |= (0x1 << 12);
 		mutex_lock(&hps_ctxt.para_lock);

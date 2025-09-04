@@ -115,13 +115,15 @@ typedef enum {
 /*****************************************************************************
  *  FIH PSE
  ****************************************************************************/
-#define	MODE_NUM	6
+#define	MODE_NUM	8
 #define	CONTENT_NUM	11
 
 typedef enum {
 	POWER_OFF = 0,
 	NO_CHARGE2,
 	HOT_CHARGE,
+	NORMAL_PHASE2,
+	NORMAL_PHASE1,
 	NORMAL_PHASE,
 	COLD_CHARGE,
 	NO_CHARGE1,
@@ -365,7 +367,7 @@ extern kal_bool ta_cable_out_occur;
 extern kal_bool is_ta_connect;
 extern struct wake_lock TA_charger_suspend_lock;
 #endif
-
+extern bool gDisableGM;
 
 /*****************************************************************************
  *  Extern Function

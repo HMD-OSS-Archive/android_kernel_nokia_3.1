@@ -75,6 +75,7 @@
 #include "m4u.h"
 #include "layering_rule.h"
 #include "compat_mtk_disp_mgr.h"
+#include "external_display.h"
 
 
 #define DDP_OUTPUT_LAYID 4
@@ -640,7 +641,6 @@ static int _sync_convert_fb_layer_to_disp_input(unsigned int session_id, disp_in
 static int set_memory_buffer(disp_session_input_config *input)
 {
 	int i = 0;
-	int ret = 0;
 	int layer_id = 0;
 	unsigned int dst_size = 0;
 	unsigned long dst_mva = 0;
@@ -697,11 +697,8 @@ static int set_memory_buffer(disp_session_input_config *input)
 		}
 
 		/* disp_sync_put_cached_layer_info(session_id, layer_id, &input->config[i], get_ovl2mem_ticket()); */
-		ret = mtkfb_update_buf_ticket(session_id, layer_id, input->config[i].next_buff_idx,
+		mtkfb_update_buf_ticket(session_id, layer_id, input->config[i].next_buff_idx,
 					get_ovl2mem_ticket());
-
-		if (ret != 0)
-			return 0;
 
 		if (input->config[i].layer_enable) {
 			mtkfb_update_buf_info(input->session_id, input->config[i].layer_id,
@@ -922,6 +919,74 @@ static int input_config_preprocess(struct disp_frame_cfg_t *cfg)
 	return 0;
 }
 
+#define GET_DISP_FORMAT_ID(fmt) ((fmt) >> 8)
+
+static int _disp_validate_color_fmt(DISP_FORMAT fmt)
+{
+	unsigned int fmt_id = 0;
+
+	fmt_id = GET_DISP_FORMAT_ID(fmt);
+	if (fmt_id < GET_DISP_FORMAT_ID(DISP_FORMAT_RGB565) ||
+	    fmt_id > GET_DISP_FORMAT_ID(DISP_FORMAT_DIM) || fmt_id == 15) {
+		DISPERR("%s: error format 0x%x\n", __func__, fmt);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static unsigned int _get_max_layer(unsigned int session_id)
+{
+	DISP_SESSION_TYPE type = DISP_SESSION_TYPE(session_id);
+
+	switch (type) {
+	case DISP_SESSION_PRIMARY:
+		return primary_display_get_max_layer();
+	case DISP_SESSION_EXTERNAL:
+		return ext_disp_get_max_layer();
+	case DISP_SESSION_MEMORY:
+		return ovl2mem_get_max_layer();
+	default:
+		DISPERR("%s: invalid session id 0x%x\n", __func__, session_id);
+		break;
+	}
+
+	return 0;
+}
+
+static int _disp_validate_session_output_params(disp_session_output_config *cfg)
+{
+	if (_disp_validate_color_fmt(cfg->config.fmt))
+		return -EINVAL;
+
+	return 0;
+}
+
+int _disp_validate_session_input_params(disp_session_input_config *cfg)
+{
+	unsigned int i = 0;
+	unsigned int max = _get_max_layer(cfg->session_id);
+
+	if (cfg->config_layer_num > max) {
+		DISPERR("%s: config_layer_num(%u) > max(%u)\n", __func__,
+			cfg->config_layer_num, max);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < cfg->config_layer_num; i++) {
+		if (cfg->config[i].layer_id >= max) {
+			DISPERR("%s: layer_id(%u) >= max(%u)\n", __func__,
+				cfg->config[i].layer_id, max);
+			return -EINVAL;
+		}
+
+		if (cfg->config[i].layer_enable &&
+		    _disp_validate_color_fmt(cfg->config[i].src_fmt))
+			return -EINVAL;
+	}
+
+	return 0;
+}
 static int __set_input(disp_session_input_config *session_input, int overlap_layer_num)
 {
 	int ret = 0;
@@ -975,6 +1040,9 @@ int _ioctl_set_input_buffer(unsigned long arg)
 		kfree(session_input);
 		return -EFAULT;
 	}
+	if (_disp_validate_session_input_params(session_input))
+		ret = -EINVAL;
+	else
 	ret = __set_input(session_input, 4);
 	kfree(session_input);
 	return ret;
@@ -1073,7 +1141,6 @@ out:
 static int __set_output(disp_session_output_config *session_output)
 {
 	unsigned int session_id = 0;
-	int ret = 0;
 	unsigned long dst_mva = 0;
 	disp_session_sync_info *session_info;
 
@@ -1085,6 +1152,7 @@ static int __set_output(disp_session_output_config *session_output)
 
 	if (DISP_SESSION_TYPE(session_id) == DISP_SESSION_PRIMARY) {
 		pr_err("%s: legecy API are not supported!\n", __func__);
+		BUG();
 	} else if (DISP_SESSION_TYPE(session_id) == DISP_SESSION_MEMORY) {
 		disp_mem_output_config primary_output;
 
@@ -1097,12 +1165,8 @@ static int __set_output(disp_session_output_config *session_output)
 						(unsigned int)session_output->config.buff_idx);
 		}
 
-		ret = mtkfb_update_buf_ticket(session_id, disp_sync_get_output_timeline_id(),
+		mtkfb_update_buf_ticket(session_id, disp_sync_get_output_timeline_id(),
 					session_output->config.buff_idx, get_ovl2mem_ticket());
-
-		if (ret != 0)
-			return 0;
-
 		_sync_convert_fb_layer_to_disp_output(session_output->session_id,
 						      &(session_output->config), &primary_output,
 						      dst_mva);
@@ -1158,6 +1222,8 @@ int _ioctl_set_output_buffer(unsigned long arg)
 		return -EFAULT;
 	}
 
+	if (_disp_validate_session_output_params(&session_output))
+		return -EINVAL;
 	return __set_output(&session_output);
 }
 
@@ -1176,6 +1242,9 @@ static int __frame_config_set_input(struct disp_frame_cfg_t *frame_cfg)
 	session_input->config_layer_num = frame_cfg->input_layer_num;
 	memcpy(session_input->config, frame_cfg->input_cfg, sizeof(frame_cfg->input_cfg));
 
+	if (_disp_validate_session_input_params(session_input))
+		ret = -EINVAL;
+	else
 	ret = __set_input(session_input, frame_cfg->overlap_layer_num);
 	kfree(session_input);
 	return ret;
@@ -1190,6 +1259,8 @@ static int __frame_config_set_output(struct disp_frame_cfg_t *frame_cfg)
 
 	session_output.session_id = frame_cfg->session_id;
 	memcpy(&session_output.config, &frame_cfg->output_cfg, sizeof(frame_cfg->output_cfg));
+	if (_disp_validate_session_output_params(&session_output))
+		return -EINVAL;
 
 	return __set_output(&session_output);
 }
@@ -1403,9 +1474,10 @@ int _ioctl_query_valid_layer(unsigned long arg)
 		DISPERR("[FB]: copy_from_user failed! line:%d\n", __LINE__);
 		return -EFAULT;
 	}
+
 	for (i = 0; i < 2; i++) {
-		if (!access_ok(VERIFY_READ, disp_info_user.input_config[i], sizeof(layer_config))) {
-			DISPERR("[FB]: can not read memory! line:%d\n", __LINE__);
+		if (!access_ok(VERIFY_READ, disp_info_user.input_config[i], sizeof(struct layer_config_t))) {
+			DISPERR("[FB]: can not access memory! line:%d\n", __LINE__);
 			return -EFAULT;
 		}
 	}
@@ -1416,7 +1488,6 @@ int _ioctl_query_valid_layer(unsigned long arg)
 		DISPERR("[FB]: copy_to_user failed! line:%d\n", __LINE__);
 		return -EFAULT;
 	}
-
 	return ret;
 }
 

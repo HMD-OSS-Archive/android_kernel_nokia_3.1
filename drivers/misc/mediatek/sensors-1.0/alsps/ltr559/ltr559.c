@@ -2147,7 +2147,7 @@ static struct file_operations ltr559_fops = {
 
 static struct miscdevice ltr559_device = {
 	.minor = MISC_DYNAMIC_MINOR,
-	.name = "als_ps_dev",
+	.name = "als_ps",
 	.fops = &ltr559_fops,
 };
 

@@ -75,23 +75,15 @@ int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	{6, 9},
 	{3, 4},
 };
-
 int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_NORMAL */
 	{12, 12},
 };
-
-/**
- * The layer mapping table define ovl layer dispatch rule for both
- * primary and secondary display.Each table has 16 elements which
- * represent the layer mapping rule by the number of input layers.
- */
 static int layer_mapping_table[HRT_TB_NUM][TOTAL_OVL_LAYER_NUM] = {
 	/* HRT_TB_TYPE_GENERAL */
 	{0x00010001, 0x00030003, 0x00070007, 0x000F000F, 0x000F001F, 0x000F003F,
 	0x000F007F, 0x000F00FF, 0x000F00FF, 0x000F00FF, 0x000F00FF, 0x000F00FF}
 };
-
 /**
  * The larb mapping table represent the relation between LARB and OVL.
  */
@@ -107,7 +99,6 @@ static int ovl_mapping_table[HRT_TB_NUM] = {
 	0x000800A8,
 };
 #endif
-
 #define GET_SYS_STATE(sys_state) ((l_rule_info.hrt_sys_state >> sys_state) & 0x1)
 
 static void layering_rule_senario_decision(disp_layer_info *disp_info)

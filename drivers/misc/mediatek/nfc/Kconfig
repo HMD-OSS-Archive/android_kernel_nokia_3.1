@@ -1,5 +1,6 @@
 menuconfig MTK_NFC
 	tristate "NFC drivers"
+	depends on !MTK_ENABLE_GMO
 	default n
 	---help---
 	  Say Y here for supporting NFC.
@@ -10,6 +11,7 @@ if MTK_NFC
 
 config NFC_MT6605 # MTK_NFC
 	tristate "MediaTek NFC driver"
+	depends on !MTK_ENABLE_GMO
 	default n
 	help
 	  Y means NFC_MT6605 define if use Mediatek NFC Function to provide reader
@@ -26,8 +28,13 @@ config NFC_MSR3110
 
 endif # NFC
 
-config NFC_CHIP_SUPPORT
-	tristate "STMicroelectronics ST21NFC NFC Controller Driver"
+config STM_MTK_NFC
+	tristate "NFC driver solution - STMicroelectronics ST21NFC NFC Controller Driver"
+	default n
 	depends on I2C
 	help
 	  STMicroelectronics ST21NFC Near Field Communication controller support.
+	  ST21NFCD can support 2UICC mode, and ST54F can support 1UICC + eSE.
+	  If configures to be y, means devices supports NFC functionality.
+	  If configures to be n, means devices doesn't support NFC functionality.
+

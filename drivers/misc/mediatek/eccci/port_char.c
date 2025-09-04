@@ -93,6 +93,7 @@ static ssize_t dev_char_read(struct file *file, char *buf, size_t count, loff_t 
 {
 	struct ccci_port *port = file->private_data;
 	struct sk_buff *skb = NULL;
+	struct ccci_header *ccci_h;
 	int ret = 0, read_len = 0, full_req_done = 0;
 	unsigned long flags = 0;
 
@@ -100,10 +101,7 @@ READ_START:
 	/* 1. get incoming request */
 	if (skb_queue_empty(&port->rx_skb_list)) {
 		if (!(file->f_flags & O_NONBLOCK)) {
-			spin_lock_irq(&port->rx_wq.lock);
-			ret = wait_event_interruptible_locked_irq(port->rx_wq,
-				!skb_queue_empty(&port->rx_skb_list));
-			spin_unlock_irq(&port->rx_wq.lock);
+			ret = wait_event_interruptible(port->rx_wq, !skb_queue_empty(&port->rx_skb_list));
 			if (ret == -ERESTARTSYS) {
 				ret = -EINTR;
 				goto exit;
@@ -146,6 +144,25 @@ READ_START:
 		}
 	} else {
 		read_len = count;
+	}
+	/* ensure rx_skb_list only has one the same ioctl cmd in port ccci_monitor */
+	/* to avoid port ccci_monitor rx full issue caused by ioctl_fuzzer64 test */
+	if (port->rx_ch == CCCI_MONITOR_CH) {
+		ccci_h = (struct ccci_header *)skb->data;
+		if (ccci_h->data[1] == CCCI_MD_MSG_FORCE_STOP_REQUEST)
+			port->force_stop_cnt--;
+		else if (ccci_h->data[1] == CCCI_MD_MSG_FLIGHT_STOP_REQUEST)
+			port->flight_stop_cnt--;
+		else if (ccci_h->data[1] == CCCI_MD_MSG_FORCE_START_REQUEST)
+			port->force_start_cnt--;
+		else if (ccci_h->data[1] == CCCI_MD_MSG_FLIGHT_START_REQUEST)
+			port->flight_start_cnt--;
+		else if (ccci_h->data[1] == CCCI_MD_MSG_RESET_REQUEST)
+			port->reset_cnt--;
+		else if (ccci_h->data[1] == CCCI_MD_MSG_STORE_NVRAM_MD_TYPE)
+			port->store_md_type_cnt--;
+		else if (ccci_h->data[1] == CCCI_MD_MSG_CFG_UPDATE)
+			port->cfg_update_cnt--;
 	}
 	spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 	if (port->flags & PORT_F_CH_TRAFFIC)

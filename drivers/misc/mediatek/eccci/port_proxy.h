@@ -91,6 +91,13 @@ struct ccci_port {
 	unsigned int rx_pkg_cnt;
 	unsigned int rx_drop_cnt;
 	unsigned int tx_pkg_cnt;
+	unsigned int force_stop_cnt;
+	unsigned int flight_stop_cnt;
+	unsigned int force_start_cnt;
+	unsigned int flight_start_cnt;
+	unsigned int reset_cnt;
+	unsigned int store_md_type_cnt;
+	unsigned int cfg_update_cnt;
 	port_skb_handler skb_handler;
 };
 

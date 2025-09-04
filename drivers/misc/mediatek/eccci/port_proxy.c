@@ -112,10 +112,6 @@ static void port_dump_raw_data(struct ccci_port *port, int dir, void *msg_buf, i
 	u64 ts_nsec;
 	unsigned long rem_nsec;
 
-	dump_size = len > DUMP_RAW_DATA_SIZE ? DUMP_RAW_DATA_SIZE : len;
-	_16_fix_num = dump_size / 16;
-	tail_num = dump_size % 16;
-
 	if (curr_p == NULL) {
 		CCCI_HISTORY_LOG(port->md_id, TAG, "start_addr <NULL>\n");
 		return;
@@ -124,6 +120,13 @@ static void port_dump_raw_data(struct ccci_port *port, int dir, void *msg_buf, i
 		CCCI_HISTORY_LOG(port->md_id, TAG, "len [0]\n");
 		return;
 	}
+	if (port->rx_ch == CCCI_FS_RX)
+		curr_p++; /* for print message-id in last 4bytes each line */
+
+	dump_size = len > DUMP_RAW_DATA_SIZE ? DUMP_RAW_DATA_SIZE : len;
+	_16_fix_num = dump_size / 16;
+	tail_num = dump_size % 16;
+
 	ts_nsec = local_clock();
 	rem_nsec = do_div(ts_nsec, 1000000000);
 
@@ -203,7 +206,53 @@ int port_recv_skb(struct ccci_port *port, struct sk_buff *skb)
 			port_adjust_skb(port, skb);
 		if (ccci_h->channel == CCCI_STATUS_RX)
 			port->skb_handler(port, skb);
-		else
+		/* ensure rx_skb_list only has one the same ioctl cmd in port ccci_monitor */
+		/* to avoid port ccci_monitor rx full issue caused by ioctl_fuzzer64 test */
+		else if (ccci_h->channel == CCCI_MONITOR_CH) {
+			if (ccci_h->data[1] == CCCI_MD_MSG_FORCE_STOP_REQUEST) {
+				if (port->force_stop_cnt == 0)
+					port->force_stop_cnt++;
+				else
+					goto drop;
+			}
+			if (ccci_h->data[1] == CCCI_MD_MSG_FLIGHT_STOP_REQUEST) {
+				if (port->flight_stop_cnt == 0)
+					port->flight_stop_cnt++;
+				else
+					goto drop;
+			}
+			if (ccci_h->data[1] == CCCI_MD_MSG_FORCE_START_REQUEST) {
+				if (port->force_start_cnt == 0)
+					port->force_start_cnt++;
+				else
+					goto drop;
+			}
+			if (ccci_h->data[1] == CCCI_MD_MSG_FLIGHT_START_REQUEST) {
+				if (port->flight_start_cnt == 0)
+					port->flight_start_cnt++;
+				else
+					goto drop;
+			}
+			if (ccci_h->data[1] == CCCI_MD_MSG_RESET_REQUEST) {
+				if (port->reset_cnt == 0)
+					port->reset_cnt++;
+				else
+					goto drop;
+			}
+			if (ccci_h->data[1] == CCCI_MD_MSG_STORE_NVRAM_MD_TYPE) {
+				if (port->store_md_type_cnt == 0)
+					port->store_md_type_cnt++;
+				else
+					goto drop;
+			}
+			if (ccci_h->data[1] == CCCI_MD_MSG_CFG_UPDATE) {
+				if (port->cfg_update_cnt == 0)
+					port->cfg_update_cnt++;
+				else
+					goto drop;
+			}
+			__skb_queue_tail(&port->rx_skb_list, skb);
+		} else
 			__skb_queue_tail(&port->rx_skb_list, skb);
 		port->rx_pkg_cnt++;
 		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
@@ -1143,6 +1192,7 @@ long port_proxy_user_ioctl(struct port_proxy *proxy_p, int ch, unsigned int cmd,
 	case CCCI_IOC_MD_RESET:
 		CCCI_NORMAL_LOG(md_id, CHAR, "MD reset ioctl called by (%d)%s\n", ch, current->comm);
 		ccci_event_log("md%d: MD reset ioctl called by (%d)%s\n", md_id, ch, current->comm);
+		clear_meta_1st_boot_arg(md_id);
 		inject_md_status_event(md_id, MD_STA_EV_RESET_REQUEST, current->comm);
 		ret = port_proxy_send_msg_to_user(proxy_p, CCCI_MONITOR_CH, CCCI_MD_MSG_RESET_REQUEST, 0);
 #ifdef CONFIG_MTK_ECCCI_C2K

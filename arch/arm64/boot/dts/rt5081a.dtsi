@@ -114,7 +114,11 @@
 			rt,bled_ramptime = <3>; /* 0, 500us, 750us, 1ms, 2ms, 5ms, 10ms, 20ms */
 						/* 50ms, 100ms, 250ms, 800ms, 1s, 2s, 4s, 8s */
 			rt,bled_flash_ramp = <1>; /* 0, 500us, 750us, 1ms, 2ms, 5ms */
+			#ifdef CONFIG_MTK_ALSPS_ES2
 			rt,max_bled_brightness = <710>; /* we have 11 bit resolution, quantize in driver */
+			#else
+			rt,max_bled_brightness = <580>;
+			#endif
 							 /* maximum 2047 */
 		};
 		dsv {

@@ -1037,8 +1037,7 @@ static unsigned int _mt_cpufreq_get_cpu_level(void)
 	else if (func_code_1 == 4) {
 		lv = CPU_LEVEL_1;
 		is_tt_segment = 1;
-	}
-	else
+	} else
 		lv = CPU_LEVEL_0;
 
 	/* get CPU clock-frequency from DT */
@@ -6134,7 +6133,8 @@ static ssize_t cpufreq_freq_proc_write(struct file *file, const char __user *buf
 	unsigned long flags;
 	struct mt_cpu_dvfs *p = (struct mt_cpu_dvfs *)PDE_DATA(file_inode(file));
 	unsigned int cur_freq;
-	int freq, i, found;
+	int freq, i;
+	int found = 0;
 	int rc;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);

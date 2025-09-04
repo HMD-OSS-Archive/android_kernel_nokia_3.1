@@ -616,7 +616,6 @@ int mmc_run_queue_thread(void *data)
 					atomic_set(&host->cq_rdy_cnt, 0);
 				}
 
-
 				if (host->ops->execute_tuning) {
 					err = host->ops->execute_tuning(host, MMC_SEND_TUNING_BLOCK_HS200);
 					if (err)
@@ -729,19 +728,12 @@ int mmc_run_queue_thread(void *data)
 			}
 		}
 
-		/* Send Command 13' */
-		if (atomic_read(&host->cq_wait_rdy) > 0
-			&& atomic_read(&host->cq_rdy_cnt) == 0)
-			mmc_do_check(host);
-
 		else if (atomic_read(&host->cq_rw)) {
 			/* wait for event to wakeup */
 			/* wake up when new request arrived and dma done */
 			areq_cnt_chk = atomic_read(&host->areq_cnt);
 			polling_tmo = sched_clock();
-			while (!(host->done_mrq ||
-					(atomic_read(&host->areq_cnt) > areq_cnt_chk))) {
-				/* delay 1ms to check new request or dma done*/
+			while (!(host->done_mrq || (atomic_read(&host->areq_cnt) > areq_cnt_chk))) {
 				if (sched_clock() - polling_tmo > 1000000) {
 					tmo = wait_event_interruptible_timeout(host->cmdq_que,
 						host->done_mrq ||
@@ -763,6 +755,10 @@ int mmc_run_queue_thread(void *data)
 				}
 			}
 		}
+		/* Send Command 13' */
+		if (atomic_read(&host->cq_wait_rdy) > 0
+			&& atomic_read(&host->cq_rdy_cnt) == 0)
+			mmc_do_check(host);
 
 		/* Sleep when nothing to do */
 		mt_biolog_cmdq_check();

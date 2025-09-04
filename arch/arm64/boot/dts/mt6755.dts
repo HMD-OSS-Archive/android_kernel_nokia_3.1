@@ -1377,6 +1377,10 @@
 			compatible = "mediatek,mt_soc_pcm_dl1_i2s0dl1";
 		};
 
+		mt_soc_deep_buffer_dl_pcm@11220000 {
+			compatible = "mediatek,mt_soc_pcm_deep_buffer_dl";
+		};
+
 		mt_soc_dl1_awb_pcm@11220000 {
 			compatible = "mediatek,mt_soc_pcm_dl1_awb";
 		};
@@ -2155,11 +2159,18 @@
 		};
 
 		nfc:nfcC@0 {
+#ifdef CONFIG_SEC_NFC
 			compatible = "samsung,nfc-sec";
 			ven-gpio = <99>;
  			irq-gpio = <26>;
  			firm-gpio = <28>;
-                        clk_req-gpio = <27>;
+			clk_req-gpio = <27>;
+#endif
+#ifdef CONFIG_ST_NFC
+			compatible = "mediatek,nfc-gpio-v2";
+			gpio-rst = <28>;
+			gpio-irq = <26>;
+#endif
 		};
 
 		gps {
@@ -3100,8 +3111,7 @@
 	};
 
 	irq_nfc: irq_nfc {
-		compatible = "mediatek, irq_nfc-eint";
-		status = "disabled";
+		compatible = "mediatek,irq_nfc-eint";
 	};
 
 	eint_wpc: eint_wpc {

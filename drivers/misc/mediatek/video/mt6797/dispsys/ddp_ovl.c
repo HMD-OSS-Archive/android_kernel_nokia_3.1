@@ -49,6 +49,9 @@ static unsigned int reg_back_cnt[OVL_NUM];
 static struct OVL_REG reg_back[OVL_NUM][OVL_REG_BACK_MAX];
 static unsigned int gOVLBackground = 0xFF000000;
 
+static unsigned int ovl_bg_w[OVL_NUM];
+static unsigned int ovl_bg_h[OVL_NUM];
+
 static inline int is_module_ovl(DISP_MODULE_ENUM module)
 {
 	if (module == DISP_MODULE_OVL0 ||
@@ -238,8 +241,32 @@ int ovl_reset(DISP_MODULE_ENUM module, void *handle)
 	return ret;
 }
 
-int ovl_roi(DISP_MODULE_ENUM module,
-	    unsigned int bg_w, unsigned int bg_h, unsigned int bg_color, void *handle)
+static void _store_roi(DISP_MODULE_ENUM module,
+		       unsigned int bg_w, unsigned int bg_h)
+{
+	int idx = ovl_to_index(module);
+
+	if (idx >= OVL_NUM)
+		return;
+
+	ovl_bg_w[idx] = bg_w;
+	ovl_bg_h[idx] = bg_h;
+}
+
+static void _get_roi(DISP_MODULE_ENUM module,
+		     unsigned int *bg_w, unsigned int *bg_h)
+{
+	int idx = ovl_to_index(module);
+
+	if (idx >= OVL_NUM)
+		return;
+
+	*bg_w = ovl_bg_w[idx];
+	*bg_h = ovl_bg_h[idx];
+}
+
+int ovl_roi(DISP_MODULE_ENUM module, unsigned int bg_w, unsigned int bg_h,
+	    unsigned int bg_color, void *handle)
 {
 	unsigned long ovl_base = ovl_base_addr(module);
 
@@ -252,6 +279,9 @@ int ovl_roi(DISP_MODULE_ENUM module,
 
 	DISP_REG_SET(handle, ovl_base + DISP_REG_OVL_ROI_BGCLR, bg_color);
 
+	_store_roi(module, bg_w, bg_h);
+
+	DDPMSG("%s roi:(%ux%u)\n", ddp_get_module_name(module), bg_w, bg_h);
 	return 0;
 }
 
@@ -340,11 +370,9 @@ static int ovl_layer_config(DISP_MODULE_ENUM module,
 #endif
 
 	if (rotate) {
-		unsigned int bg_h, bg_w;
+		unsigned int bg_h = 0, bg_w = 0;
 
-		bg_h = DISP_REG_GET(ovl_base + DISP_REG_OVL_ROI_SIZE);
-		bg_w = bg_h & 0xFFFF;
-		bg_h = bg_h >> 16;
+		_get_roi(module, &bg_w, &bg_h);
 		DISP_REG_SET(handle, DISP_REG_OVL_L0_OFFSET + layer_offset,
 			     ((bg_h - dst_h - dst_y) << 16) | (bg_w - dst_w - dst_x));
 	} else {
@@ -778,18 +806,19 @@ static int setup_ovl_sec(DISP_MODULE_ENUM module, void *handle, int is_engine_se
 			/* we should disable ovl before new (nonsec) setting take effect
 			* or translation fault may happen,
 			* if we switch ovl to nonsec BUT its setting is still sec */
-			for (i = 0; i < ovl_layer_num(module); i++)
+			for (i = 0; i < ovl_layer_num(module); i++) {
 				ovl_layer_switch(module, i, 0, nonsec_switch_handle);
-				/*in fact, dapc/port_sec will be disabled by cmdq */
-				cmdqRecSecureEnablePortSecurity(nonsec_switch_handle, (1LL << cmdq_engine));
-				/* cmdqRecSecureEnableDAPC(handle, (1LL << cmdq_engine)); */
-				/*cmdqRecSetEventToken(nonsec_switch_handle, cmdq_event_nonsec_end);*/
-				/*cmdqRecFlushAsync(nonsec_switch_handle);*/
-				cmdqRecFlush(nonsec_switch_handle);
-				cmdqRecDestroy(nonsec_switch_handle);
-				/*cmdqRecWait(handle, cmdq_event_nonsec_end);*/
-				DDPMSG("[SVP] switch ovl%d to nonsec\n", ovl_idx);
-			}
+            }
+			/*in fact, dapc/port_sec will be disabled by cmdq */
+			cmdqRecSecureEnablePortSecurity(nonsec_switch_handle, (1LL << cmdq_engine));
+			/* cmdqRecSecureEnableDAPC(handle, (1LL << cmdq_engine)); */
+			/*cmdqRecSetEventToken(nonsec_switch_handle, cmdq_event_nonsec_end);*/
+			/*cmdqRecFlushAsync(nonsec_switch_handle);*/
+			cmdqRecFlush(nonsec_switch_handle);
+			cmdqRecDestroy(nonsec_switch_handle);
+			/*cmdqRecWait(handle, cmdq_event_nonsec_end);*/
+			DDPMSG("[SVP] switch ovl%d to nonsec\n", ovl_idx);
+		}
 		ovl_is_sec[ovl_idx] = 0;
 	}
 
@@ -1264,6 +1293,8 @@ int ovl_partial_update(DISP_MODULE_ENUM module, unsigned int bg_w,
 	}
 	DDPDBG("ovl%d partial update\n", module);
 	DISP_REG_SET(handle, ovl_base + DISP_REG_OVL_ROI_SIZE, bg_h << 16 | bg_w);
+
+	_store_roi(module, bg_w, bg_h);
 
 	return 0;
 }

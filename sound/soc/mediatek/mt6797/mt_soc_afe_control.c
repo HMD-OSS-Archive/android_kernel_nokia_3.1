@@ -2988,6 +2988,49 @@ int AudDrv_Allocate_DL1_Buffer(struct device *pDev, kal_uint32 Afe_Buf_Length,
 	return 0;
 }
 
+int AudDrv_Allocate_DL2_Buffer(struct device *pDev, kal_uint32 Afe_Buf_Length,
+	dma_addr_t dma_addr, unsigned char *dma_area)
+{
+	AFE_BLOCK_T *pblock;
+
+	pblock = &(AFE_Mem_Control_context[Soc_Aud_Digital_Block_MEM_DL2]->rBlock);
+	pblock->u4BufferSize = Afe_Buf_Length;
+
+	if (Afe_Buf_Length > AFE_INTERNAL_SRAM_SIZE) {
+		pr_err("%s(), Afe_Buf_Length %d > %d\n",
+		       __func__,
+		       Afe_Buf_Length,
+		       AFE_INTERNAL_SRAM_SIZE);
+		return -1;
+	}
+
+	pblock->pucPhysBufAddr = (kal_uint32)dma_addr;
+	pblock->pucVirtBufAddr = dma_area;
+
+	pr_warn("%s(), Afe_Buf_Length = %d, pucVirtBufAddr = %p, pblock->pucPhysBufAddr = 0x%x\n",
+		__func__, Afe_Buf_Length, pblock->pucVirtBufAddr, pblock->pucPhysBufAddr);
+
+	/* check 32 bytes align */
+	if ((pblock->pucPhysBufAddr & 0x1f) != 0) {
+		pr_warn("[Auddrv] AudDrv_Allocate_DL1_Buffer is not aligned (0x%x)\n",
+			pblock->pucPhysBufAddr);
+	}
+
+	pblock->u4SampleNumMask = 0x001f;	/* 32 byte align */
+	pblock->u4WriteIdx = 0;
+	pblock->u4DMAReadIdx = 0;
+	pblock->u4DataRemained = 0;
+	pblock->u4fsyncflag = false;
+	pblock->uResetFlag = true;
+
+	/* set sram address top hardware */
+	Afe_Set_Reg(AFE_DL2_BASE, pblock->pucPhysBufAddr, 0xffffffff);
+	Afe_Set_Reg(AFE_DL2_END, pblock->pucPhysBufAddr + (Afe_Buf_Length - 1), 0xffffffff);
+	memset_io(pblock->pucVirtBufAddr, 0, pblock->u4BufferSize);
+
+	return 0;
+}
+
 int AudDrv_Allocate_mem_Buffer(struct device *pDev, Soc_Aud_Digital_Block MemBlock,
 			       uint32 Buffer_length)
 {

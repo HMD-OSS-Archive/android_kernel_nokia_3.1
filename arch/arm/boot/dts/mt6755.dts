@@ -1374,6 +1374,10 @@
 			compatible = "mediatek,mt_soc_pcm_dl1_i2s0dl1";
 		};
 
+		mt_soc_deep_buffer_dl_pcm@11220000 {
+			compatible = "mediatek,mt_soc_pcm_deep_buffer_dl";
+		};
+
 		mt_soc_dl1_awb_pcm@11220000 {
 			compatible = "mediatek,mt_soc_pcm_dl1_awb";
 		};

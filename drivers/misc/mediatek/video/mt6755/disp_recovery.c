@@ -514,6 +514,7 @@ done:
 #if defined(CONFIG_TOUCHSCREEN_MTK_FTSRAW_CHECK_LCDESD)
 extern int lcd_need_reset;
 #endif
+
 static int primary_display_check_recovery_worker_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = RTPM_PRIO_FB_THREAD };
@@ -546,7 +547,7 @@ static int primary_display_check_recovery_worker_kthread(void *data)
 #if defined(CONFIG_TOUCHSCREEN_MTK_FTSRAW_CHECK_LCDESD)
 				if (ret == 1 || lcd_need_reset) {
 #else
-				if (ret == 1) {
+					if (ret == 1) {
 #endif
 					DISPERR("[ESD]esd check fail, will do esd recovery. try=%d\n", i);
 					primary_display_esd_recovery();

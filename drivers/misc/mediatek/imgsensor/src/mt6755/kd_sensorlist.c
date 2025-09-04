@@ -285,6 +285,7 @@ int iMultiReadReg(u16 a_u2Addr , u8 *a_puBuff , u16 i2cId, u8 number)
 
     if (gI2CBusNum == SUPPORT_I2C_BUS_NUM1) {
     spin_lock(&kdsensor_drv_lock);
+
     g_pstI2Cclient->addr = (i2cId >> 1);
 
     spin_unlock(&kdsensor_drv_lock);
@@ -394,7 +395,6 @@ int iReadRegI2C(u8 *a_pSendData , u16 a_sizeSendData, u8 *a_pRecvData, u16 a_siz
     if (gI2CBusNum == SUPPORT_I2C_BUS_NUM1) {
     spin_lock(&kdsensor_drv_lock);
     g_pstI2Cclient->addr = (i2cId >> 1);
-    PK_ERR("songbl g_pstI2Cclient->addr = %d\n",g_pstI2Cclient->addr);
     g_pstI2Cclient->ext_flag = (g_pstI2Cclient->ext_flag)&(~I2C_DMA_FLAG);
 
     /* Remove i2c ack error log during search sensor */
@@ -3756,7 +3756,7 @@ static int CAMERA_HW_i2c_probe(struct i2c_client *client, const struct i2c_devic
     spin_lock(&kdsensor_drv_lock);
     g_pstI2Cclient = client;
     /* set I2C clock rate */
-    g_pstI2Cclient->timing = 400;/* 400k */
+    g_pstI2Cclient->timing = 100;/* 100k */
     g_pstI2Cclient->ext_flag &= ~I2C_POLLING_FLAG; /* No I2C polling busy waiting */
 
     spin_unlock(&kdsensor_drv_lock);
@@ -3961,7 +3961,7 @@ static int CAMERA_HW_i2c_probe2(struct i2c_client *client, const struct i2c_devi
     g_pstI2Cclient2 = client;
 
     /* set I2C clock rate */
-    g_pstI2Cclient2->timing = 400;/* 400k */
+    g_pstI2Cclient2->timing = 100;/* 100k */
     g_pstI2Cclient2->ext_flag &= ~I2C_POLLING_FLAG; /* No I2C polling busy waiting */
     spin_unlock(&kdsensor_drv_lock);
 

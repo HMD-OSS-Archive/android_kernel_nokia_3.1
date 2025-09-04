@@ -252,8 +252,10 @@ void mtk_wdt_restart(enum wd_restart_type type)
 
 	if (!toprgu_base) {
 		toprgu_base = of_iomap(np_rgu, 0);
-		if (!toprgu_base)
+		if (!toprgu_base) {
 			pr_debug("RGU iomap failed\n");
+			return;
+		}
 		/* pr_debug("RGU base: 0x%p  RGU irq: %d\n", toprgu_base, wdt_irq_id); */
 	}
 #endif
@@ -273,7 +275,7 @@ void mtk_wdt_restart(enum wd_restart_type type)
 	#ifdef CONFIG_KICK_SPM_WDT
 		spm_wdt_restart_timer_nolock();
 	#else
-		*(u32 *)(MTK_WDT_RESTART) = MTK_WDT_RESTART_KEY;
+		mt_reg_sync_writel(MTK_WDT_RESTART_KEY, MTK_WDT_RESTART);
 	#endif
 	} else
 		pr_debug("WDT:[mtk_wdt_restart] type=%d error pid =%d\n", type, current->pid);

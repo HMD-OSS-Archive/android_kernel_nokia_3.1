@@ -169,6 +169,8 @@ static int dvfs_last_ovl_req = HRT_LEVEL_LOW;
 static atomic_t delayed_trigger_kick = ATOMIC_INIT(0);
 static atomic_t od_trigger_kick = ATOMIC_INIT(0);
 
+static struct disp_ccorr_config night_light_config;
+
 typedef struct {
 	DISP_POWER_STATE state;
 	unsigned int lcm_fps;
@@ -206,6 +208,9 @@ typedef struct {
 	cmdqBackupSlotHandle ovl_status_info;
 	cmdqBackupSlotHandle ovl_config_time;
 	cmdqBackupSlotHandle dither_status_info;
+	cmdqBackupSlotHandle night_light_dirty;
+	cmdqBackupSlotHandle night_light_mode;
+	cmdqBackupSlotHandle night_light_matrix;
 
 	int is_primary_sec;
 	int primary_display_scenario;
@@ -2386,6 +2391,7 @@ int _trigger_ovl_to_memory(disp_path_handle disp_handle,
 {
 	int layer = 0;
 	unsigned int rdma_pitch_sec;
+	struct disp_ccorr_config *nl_cfg = &night_light_config;
 
 	MMProfileLogEx(ddp_mmp_get_events()->ovl_trigger, MMProfileFlagStart, 0, data);
 
@@ -2406,6 +2412,19 @@ int _trigger_ovl_to_memory(disp_path_handle disp_handle,
 	rdma_pitch_sec = mem_config.pitch | (mem_config.security << 30);
 	cmdqRecBackupUpdateSlot(cmdq_handle, pgc->rdma_buff_info, 1, rdma_pitch_sec);
 	cmdqRecBackupUpdateSlot(cmdq_handle, pgc->rdma_buff_info, 2, (unsigned int)mem_config.fmt);
+
+	cmdqRecBackupUpdateSlot(cmdq_handle, pgc->night_light_dirty, 0,
+				nl_cfg->is_dirty);
+	if (nl_cfg->is_dirty) {
+		int i = 0;
+
+		cmdqRecBackupUpdateSlot(cmdq_handle, pgc->night_light_mode, 0,
+					nl_cfg->mode);
+		for (i = 0; i < 16; i++)
+			cmdqRecBackupUpdateSlot(cmdq_handle,
+						pgc->night_light_matrix, i,
+						nl_cfg->color_matrix[i]);
+	}
 
 	cmdqRecFlushAsyncCallback(cmdq_handle, callback, data);
 	cmdqRecReset(cmdq_handle);
@@ -2678,61 +2697,81 @@ static int _decouple_update_rdma_config_nolock(void)
 {
 	int interface_fence = 0;
 	int layer = 0;
-	int ret = 0;
+	static cmdqRecHandle qhandle;
+	unsigned int rdma_pitch_sec;
+	RDMA_CONFIG_STRUCT tmpConfig = decouple_rdma_config;
+	struct disp_ccorr_config nl_cfg;
 
-	if (primary_display_is_decouple_mode()) {
-		static cmdqRecHandle cmdq_handle;
-		unsigned int rdma_pitch_sec;
+	if (!primary_display_is_decouple_mode())
+		return 0;
 
-		layer = disp_sync_get_output_timeline_id();
-		cmdqBackupReadSlot(pgc->cur_config_fence, layer, &interface_fence);
+	layer = disp_sync_get_output_timeline_id();
+	cmdqBackupReadSlot(pgc->cur_config_fence, layer, &interface_fence);
 
-		if (primary_get_state() != DISP_ALIVE) {
-			/* don't trigger rdma */
-			/* release interface fence */
-			_Interface_fence_release_callback(interface_fence > 1 ? interface_fence - 1 : 0);
+	if (primary_get_state() != DISP_ALIVE) {
+		/* don't trigger rdma */
+		/* release interface fence */
+		_Interface_fence_release_callback(interface_fence > 1 ? interface_fence - 1 : 0);
 
-			return -1;
-		}
+		return -1;
+	}
 
-		if (cmdq_handle == NULL)
-			ret = cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &cmdq_handle);
-		if (ret == 0) {
-			RDMA_CONFIG_STRUCT tmpConfig = decouple_rdma_config;
+	if (qhandle == NULL) {
+		int ret = 0;
 
-			cmdqRecReset(cmdq_handle);
-			_cmdq_insert_wait_frame_done_token_mira(cmdq_handle);
-			cmdqBackupReadSlot(pgc->rdma_buff_info, 0, (uint32_t *)(&(tmpConfig.address)));
-
-			/* rdma pitch only use bit[15..0], we use bit[31:30] to store secure information */
-			cmdqBackupReadSlot(pgc->rdma_buff_info, 1, &(rdma_pitch_sec));
-			tmpConfig.pitch = rdma_pitch_sec & ~(3<<30);
-			tmpConfig.security = rdma_pitch_sec >> 30;
-
-			cmdqBackupReadSlot(pgc->rdma_buff_info, 2, &(tmpConfig.inputFormat));
-
-			tmpConfig.height = primary_display_get_height();
-			tmpConfig.width = primary_display_get_width();
-			tmpConfig.yuv_range = 1; /* BT601 */
-#ifdef _DEBUG_DITHER_HANG_
-			if (primary_display_is_video_mode()) {
-				cmdqRecBackupRegisterToSlot(cmdq_handle, pgc->dither_status_info,
-							    0, disp_addr_convert(DISP_REG_DITHER_OUT_CNT));
-			}
-#endif
-			_config_rdma_input_data(&tmpConfig, pgc->dpmgr_handle, cmdq_handle);
-			_cmdq_set_config_handle_dirty_mira(cmdq_handle);
-
-			cmdqRecFlushAsyncCallback(cmdq_handle, (CmdqAsyncFlushCB)_Interface_fence_release_callback,
-					interface_fence > 1 ? interface_fence - 1 : 0);
-
-			dprec_mmp_dump_rdma_layer(&tmpConfig, 0);
-			MMProfileLogEx(ddp_mmp_get_events()->primary_rdma_config, MMProfileFlagPulse,
-					interface_fence, tmpConfig.address);
-		} else {
-			DISPERR("fail to create cmdq\n");
+		ret = cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &qhandle);
+		if (ret) {
+			DISPERR("%s:fail to create cmdq\n", __func__);
+			return 0;
 		}
 	}
+
+	cmdqRecReset(qhandle);
+	_cmdq_insert_wait_frame_done_token_mira(qhandle);
+
+	/* night light */
+	cmdqBackupReadSlot(pgc->night_light_dirty, 0,
+			   (unsigned int *)&nl_cfg.is_dirty);
+	if (nl_cfg.is_dirty) {
+		int i = 0;
+
+		cmdqBackupReadSlot(pgc->night_light_mode, 0, &nl_cfg.mode);
+		for (i = 0; i < 16; i++)
+			cmdqBackupReadSlot(pgc->night_light_matrix, i,
+					   &nl_cfg.color_matrix[i]);
+
+		disp_ccorr_set_color_matrix(qhandle, nl_cfg.color_matrix,
+					    nl_cfg.mode);
+	}
+
+	cmdqBackupReadSlot(pgc->rdma_buff_info, 0, (uint32_t *)(&(tmpConfig.address)));
+	/* rdma pitch only use bit[15..0], we use bit[31:30] to store secure information */
+	cmdqBackupReadSlot(pgc->rdma_buff_info, 1, &(rdma_pitch_sec));
+	tmpConfig.pitch = rdma_pitch_sec & ~(3<<30);
+	tmpConfig.security = rdma_pitch_sec >> 30;
+	cmdqBackupReadSlot(pgc->rdma_buff_info, 2, &(tmpConfig.inputFormat));
+
+	tmpConfig.height = primary_display_get_height();
+	tmpConfig.width = primary_display_get_width();
+	tmpConfig.yuv_range = 1; /* BT601 */
+
+#ifdef _DEBUG_DITHER_HANG_
+	if (primary_display_is_video_mode()) {
+		cmdqRecBackupRegisterToSlot(qhandle, pgc->dither_status_info,
+					    0, disp_addr_convert(DISP_REG_DITHER_OUT_CNT));
+	}
+#endif
+
+	_config_rdma_input_data(&tmpConfig, pgc->dpmgr_handle, qhandle);
+	_cmdq_set_config_handle_dirty_mira(qhandle);
+
+	cmdqRecFlushAsyncCallback(qhandle, (CmdqAsyncFlushCB)_Interface_fence_release_callback,
+			interface_fence > 1 ? interface_fence - 1 : 0);
+
+	dprec_mmp_dump_rdma_layer(&tmpConfig, 0);
+	MMProfileLogEx(ddp_mmp_get_events()->primary_rdma_config, MMProfileFlagPulse,
+			interface_fence, tmpConfig.address);
+
 	return 0;
 }
 
@@ -3137,6 +3176,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps, int is_lcm_inited
 	int use_cmdq = disp_helper_get_option(DISP_OPT_USE_CMDQ);
 	disp_ddp_path_config *data_config;
 	struct ddp_io_golden_setting_arg gset_arg;
+	int i = 0;
 
 	DISPCHECK("primary_display_init begin lcm=%s, inited=%d\n", lcm_name, is_lcm_inited);
 
@@ -3149,6 +3189,25 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps, int is_lcm_inited
 	init_cmdq_slots(&(pgc->rdma_buff_info), 3, 0);
 	init_cmdq_slots(&(pgc->ovl_status_info), 4, 0);
 	init_cmdq_slots(&(pgc->dither_status_info), 1, 0x10001);
+
+	/* init night light related variable */
+	init_cmdq_slots(&(pgc->night_light_dirty), 1, 1);
+	init_cmdq_slots(&(pgc->night_light_mode), 1, 1);
+	init_cmdq_slots(&(pgc->night_light_matrix), 16, 0);
+	night_light_config.is_dirty = 1;
+	night_light_config.mode = 1;
+	/* init diagonal of ccorr 4x4 color_matrix */
+	for (i = 0; i < 4; i++) {
+		unsigned int diag = i + i * 4;
+
+		if (diag >= ARRAY_SIZE(night_light_config.color_matrix)) {
+			DISPERR("%s:%d: array out-of-bound(idx:%d)\n",
+				__func__, __LINE__, diag);
+			break;
+		}
+		night_light_config.color_matrix[diag] = 1024;
+		cmdqBackupWriteSlot(pgc->night_light_matrix, diag, 1024);
+	}
 
 	mutex_init(&(pgc->capture_lock));
 	mutex_init(&(pgc->lock));
@@ -4878,7 +4937,8 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	data_config = dpmgr_path_get_last_config(disp_handle);
 
 	if (disp_partial_is_support()) {
-		if (primary_display_is_directlink_mode())
+		if (primary_display_is_directlink_mode() &&
+		    !cfg->ccorr_config.is_dirty)
 			disp_partial_compute_ovl_roi(cfg, data_config, &total_dirty_roi);
 		else
 			assign_full_lcm_roi(&total_dirty_roi);
@@ -5107,6 +5167,7 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 	unsigned int wdma_mva = 0;
 	disp_path_handle disp_handle;
 	cmdqRecHandle cmdq_handle;
+	struct disp_ccorr_config *nl_cfg = &cfg->ccorr_config;
 
 	if (gTriggerDispMode > 0)
 		return 0;
@@ -5142,6 +5203,14 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 		primary_show_basic_debug_info(cfg);
 
 	_config_ovl_input(cfg, disp_handle, cmdq_handle);
+
+	if (nl_cfg->is_dirty && !primary_display_is_decouple_mode())
+		disp_ccorr_set_color_matrix(cmdq_handle, nl_cfg->color_matrix,
+					    nl_cfg->mode);
+	else if (nl_cfg->is_dirty)
+		night_light_config = *nl_cfg;
+	else
+		night_light_config.is_dirty = nl_cfg->is_dirty;
 
 	if (primary_display_is_decouple_mode() && !primary_display_is_mirror_mode()) {
 		pgc->dc_buf_id++;
@@ -5183,6 +5252,7 @@ int primary_display_config_input_multiple(disp_session_input_config *session_inp
 	frame_cfg->setter = session_input->setter;
 	frame_cfg->input_layer_num = session_input->config_layer_num;
 	frame_cfg->overlap_layer_num = HRT_LEVEL_HIGH;
+	frame_cfg->ccorr_config = session_input->ccorr_config;
 	memcpy(frame_cfg->input_cfg, session_input->config, sizeof(frame_cfg->input_cfg));
 
 	_primary_path_lock(__func__);
@@ -5256,7 +5326,7 @@ int primary_display_user_cmd(unsigned int cmd, unsigned long arg)
 
 	MMProfileLogEx(ddp_mmp_get_events()->primary_display_cmd, MMProfileFlagStart, (unsigned long)handle, 0);
 
-	if (cmd == DISP_IOCTL_AAL_GET_HIST) {
+	if (cmd == DISP_IOCTL_AAL_GET_HIST || cmd == DISP_IOCTL_CCORR_GET_IRQ) {
 		_primary_path_lock(__func__);
 
 		if (disp_helper_get_option(DISP_OPT_USE_CMDQ)) {
@@ -6617,10 +6687,13 @@ int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end, unsi
 
 	if (disp_helper_get_option(DISP_OPT_USE_M4U)) {
 		m4u_client_t *client;
-
 		struct sg_table *sg_table = &table;
 
-		sg_alloc_table(sg_table, 1, GFP_KERNEL);
+		ret = sg_alloc_table(sg_table, 1, GFP_KERNEL);
+		if (ret) {
+			DISPMSG("%s: sg_alloc_table failed\n", __func__);
+			return -ENOMEM;
+		}
 
 		sg_dma_address(sg_table->sgl) = pa_start;
 		sg_dma_len(sg_table->sgl) = (pa_end - pa_start + 1);

@@ -20,12 +20,12 @@
 #define SIG_ERESTARTSYS 512
 
 #ifdef CONFIG_COMPAT
-//64 bit 
+//64 bit
 #include <linux/fs.h>
 #include <linux/compat.h>
 #endif
 
-typedef struct 
+typedef struct
 {
     unsigned int  *pAddr;
     unsigned int  *pData;

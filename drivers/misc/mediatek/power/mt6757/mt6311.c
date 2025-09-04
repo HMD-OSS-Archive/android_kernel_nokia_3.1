@@ -149,7 +149,8 @@ static ssize_t mt6311_logger_write(struct file *file, const char __user *buf, si
 		if (size > 2) {
 			pdbg_lv = strsep(&info, " ");
 			/* pr_err(PMICTAG "[logger_write] pdbg_lv is %s, info is %s\n", pdbg_lv, info); */
-			ret = kstrtou32(pdbg_lv, 16, (unsigned int *)&dbg_lv_value);
+			if (pdbg_lv)
+				ret = kstrtou32(pdbg_lv, 16, (unsigned int *)&dbg_lv_value);
 		}
 
 		if (size > 2) {
@@ -157,7 +158,8 @@ static ssize_t mt6311_logger_write(struct file *file, const char __user *buf, si
 			/*pvalue = (char *)buf + 1;*/
 			paddr = strsep(&info, " ");
 			/* pr_err(PMICTAG "[logger_write] paddr is %s, info is %s\n", paddr, info); */
-			ret = kstrtou32(paddr, 16, (unsigned int *)&reg_addr);
+			if (paddr)
+				ret = kstrtou32(paddr, 16, (unsigned int *)&reg_addr);
 		}
 	}
 
@@ -197,14 +199,16 @@ static ssize_t mt6311_access_write(struct file *file, const char __user *buf, si
 		if (size > 5) {
 			addr = strsep(&info, " ");
 			/* pr_err(PMICTAG "[access_write] paddr is %s, info is %s\n", addr, info); */
-			ret = kstrtou32(addr, 16, (unsigned int *)&reg_addr);
+			if (addr)
+				ret = kstrtou32(addr, 16, (unsigned int *)&reg_addr);
 		} else
 			ret = kstrtou32(info, 16, (unsigned int *)&reg_addr);
 
 		if (size > 5) {
 			val = strsep(&info, " ");
 			/* pr_err(PMICTAG "[access_write] pvalue is %s, info is %s\n", val, info); */
-			ret = kstrtou32(val, 16, (unsigned int *)&reg_value);
+			if (val)
+				ret = kstrtou32(val, 16, (unsigned int *)&reg_value);
 			ret = mt6311_config_interface(reg_addr, reg_value, 0xFF, 0x0);
 			g_reg_value_mt6311 = reg_value;
 		} else {
@@ -253,13 +257,15 @@ static ssize_t mt6311_buck_ut_write(struct file *file, const char __user *buf, s
 		if (size > 3) {
 			pmode = strsep(&info, " ");
 			/* pr_err(PMICTAG "[logger_write] pdbg_lv is %s, info is %s\n", pdbg_lv, info); */
-			ret = kstrtou32(pmode, 16, (unsigned int *)&mode_value);
+			if (pmode)
+				ret = kstrtou32(pmode, 16, (unsigned int *)&mode_value);
 		}
 
 		if (size > 3) {
 			penable = strsep(&info, " ");
 			/* pr_err(PMICTAG "[logger_write] pdbg_lv is %s, info is %s\n", pdbg_lv, info); */
-			ret = kstrtou32(penable, 16, (unsigned int *)&enable_value);
+			if (penable)
+				ret = kstrtou32(penable, 16, (unsigned int *)&enable_value);
 		}
 
 		if (size > 3) {
@@ -267,7 +273,8 @@ static ssize_t mt6311_buck_ut_write(struct file *file, const char __user *buf, s
 			/*pvalue = (char *)buf + 1;*/
 			pvoltage = strsep(&info, " ");
 			/* pr_err(PMICTAG "[logger_write] paddr is %s, info is %s\n", paddr, info); */
-			ret = kstrtoint(pvoltage, 10, (int *)&voltage_value);
+			if (pvoltage)
+				ret = kstrtoint(pvoltage, 10, (int *)&voltage_value);
 		}
 	}
 
@@ -7768,7 +7775,8 @@ static ssize_t store_mt6311_access(struct device *dev, struct device_attribute *
 		pvalue = (char *)buf;
 		if (size > 5) {
 			addr = strsep(&pvalue, " ");
-			ret = kstrtou32(addr, 16, (unsigned int *)&reg_address);
+			if (addr)
+				ret = kstrtou32(addr, 16, (unsigned int *)&reg_address);
 		} else
 			ret = kstrtou32(pvalue, 16, (unsigned int *)&reg_address);
 		/*ret = kstrtoul(buf, 16, (unsigned long *)&reg_address);*/
@@ -7776,7 +7784,8 @@ static ssize_t store_mt6311_access(struct device *dev, struct device_attribute *
 		if (size > 5) {
 			/*reg_value = simple_strtoul((pvalue + 1), NULL, 16);*/
 			val =  strsep(&pvalue, " ");
-			ret = kstrtou32(val, 16, (unsigned int *)&reg_value);
+			if (val)
+				ret = kstrtou32(val, 16, (unsigned int *)&reg_value);
 			pr_err(PMICTAG "[store_mt6311_access] write mt6311 reg 0x%x with value 0x%x !\n",
 				reg_address, reg_value);
 

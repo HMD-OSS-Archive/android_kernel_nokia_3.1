@@ -1025,7 +1025,7 @@ static int sim_card_slot_show(struct seq_file *s,void *unused)
 {
 	printk("sim_card_slot_show enter\n");
         unsigned short project_id = 0;
-
+        //FIH Houwuyang 2018/06/05 set sim_card_slot start.
         project_id = (fih_hwid >> 8) & 0x00F;
 
 	printk("Current project id = %d, sim_num = %s.\n", project_id, model[project_id].sim_num);
@@ -1041,6 +1041,7 @@ static int sim_card_slot_show(struct seq_file *s,void *unused)
 		printk("set sim_card_slot = 2\n");
 	}
 	return 0;
+        //FIH Houwuyang 2018/06/05 set sim_card_slot end.
 }
 
 static int sim_card_slot_write(struct file *flip,const char __user *buf,size_t count,loff_t *f_pos)
@@ -1199,26 +1200,13 @@ static int fqc_xml_path_show(struct seq_file *s, void *unused)
         {
                 fqc_path[20] = 'N';
         }
+        if(strchr(model[project_id].model_name, 'C') != NULL)
+        {
+                fqc_path[18] = 'C';
+                fqc_path[19] = 'O';
+        }
         printk("%s: %s\n", __func__, fqc_path);
         seq_printf(s, "%s\n", fqc_path);
-	return 0;
-}
-
-static int skuid_show(struct seq_file *s, void *unused)
-{
-	char fih_skuid[30] = {'\0'};
-	char *p, *q;
-
-	p = strstr(saved_command_line, "fih_skuid=");
-	if (p == NULL) return 0;
-	p = p+10;
-	q = p;
-	while(*q != ' ') q++;
-	strncpy(fih_skuid, p, (int)(q-p));
-	printk("%s: fih_skuid=%s\n", __func__, fih_skuid);
-
-	seq_printf(s, "%s\n", fih_skuid);
-
 	return 0;
 }
 
@@ -1269,6 +1257,25 @@ static int cda_user_proc_write(struct file *file, const char  __user *buffer,
 	}
 	return count;
 }
+
+static int skuid_show(struct seq_file *s, void *unused)
+{
+	char fih_skuid[30] = {'\0'};
+	char *p, *q;
+
+	p = strstr(saved_command_line, "fih_skuid=");
+	if (p == NULL) return 0;
+	p = p+10;
+	q = p;
+	while(*q != ' ') q++;
+	strncpy(fih_skuid, p, (int)(q-p));
+	printk("%s: fih_skuid=%s\n", __func__, fih_skuid);
+
+	seq_printf(s, "%s\n", fih_skuid);
+
+	return 0;
+}
+
 
 static int baseband_open(struct inode *inode, struct file *file)
 {

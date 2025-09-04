@@ -645,11 +645,13 @@ typedef struct {
 	unsigned int physical_height_um;	/* length: um, for more precise precision */
 	unsigned int od_table_size;
 	void *od_table;
-
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
+	unsigned int full_content;
 	unsigned int corner_pattern_width;
 	unsigned int corner_pattern_height;
+	unsigned int corner_pattern_height_bot;
 #endif
+
 } LCM_PARAMS;
 
 

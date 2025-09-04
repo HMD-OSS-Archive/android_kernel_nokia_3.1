@@ -166,6 +166,7 @@ void ext4_exit_crypto(void)
 	ext4_crypto_ctx_cachep = NULL;
 	if (ext4_crypt_info_cachep)
 		kmem_cache_destroy(ext4_crypt_info_cachep);
+	pr_notice("ext4_crypt_info_cachep destroyed\n");
 	ext4_crypt_info_cachep = NULL;
 }
 
@@ -197,6 +198,7 @@ int ext4_init_crypto(void)
 					    SLAB_RECLAIM_ACCOUNT);
 	if (!ext4_crypt_info_cachep)
 		goto fail;
+	pr_notice("get ext4_crypt_info_cachep at %p\n", ext4_crypt_info_cachep);
 
 	for (i = 0; i < num_prealloc_crypto_ctxs; i++) {
 		struct ext4_crypto_ctx *ctx;
@@ -444,7 +446,6 @@ int ext4_encrypted_zeroout(struct inode *inode, struct ext4_extent *ex)
 			goto errout;
 		}
 		err = submit_bio_wait(WRITE, bio);
-                err = submit_bio_wait(WRITE, bio);
 		if ((err == 0) && !test_bit(BIO_UPTODATE, &bio->bi_flags))
 			err = -EIO;
 		bio_put(bio);

@@ -329,6 +329,7 @@ static struct LCM_setting_table lcm_initialization_setting[] = {
 		    0x04, 0x00, 0x00, 0x69, 0x5A} },
 	/* self check module */
 	{0xB0, 1, {0x03} },/*Manufacturer Command Access Protect */
+	{0x44, 2, {0x00, 0x20} },
 	{0x35, 1, {0x00} },
 	/* {0x51, 1, {0xFF} }, */
 	{0x53, 1, {0x2C} },/* BL=1h */

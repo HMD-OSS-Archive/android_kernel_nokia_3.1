@@ -38,7 +38,7 @@
 static struct i2c_client *g_pstAF_I2Cclient;
 static int *g_pAF_Opened;
 static spinlock_t *g_pAF_SpinLock;
-struct stAF_MotorInfo proc_stMotorInfo;
+extern struct stAF_MotorInfo proc_stMotorInfo;
 
 static unsigned long g_u4AF_INF;
 static unsigned long g_u4AF_MACRO = 1023;
@@ -214,7 +214,7 @@ static inline int moveAF(unsigned long a_u4Position)
 		LOG_INF("out of range\n");
 		return -EINVAL;
 	}
-        pr_err("the songbl %ld\n",a_u4Position);
+        //pr_err("the songbl %ld\n",a_u4Position);
 	if (*g_pAF_Opened == 1) {
 		unsigned short InitPos;
 		FP5516_Init();

@@ -256,7 +256,7 @@ int config_mau(M4U_MAU_STRUCT mau)
 	if (0 != m4u_id)
 		return -1;
 
-	if (port_id >= M4U_PORT_UNKNOWN || larb == -1)
+	if (port_id >= M4U_LARB_PORT_NR || larb == -1)
 		return -1;
 
 	for (i = 0; i < M4U0_MAU_NR; i++) {

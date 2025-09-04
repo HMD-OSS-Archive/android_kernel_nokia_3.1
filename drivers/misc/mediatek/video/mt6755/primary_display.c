@@ -52,6 +52,7 @@
 #include "ddp_drv.h"
 #include "ddp_reg.h"
 #include "disp_session.h"
+#include "ddp_gamma.h"
 #include "primary_display.h"
 #include "cmdq_def.h"
 #include "cmdq_record.h"
@@ -520,7 +521,6 @@ static int _fps_ctx_reset(struct fps_ctx_t *fps_ctx, int reserve_num)
 
 	if (reserve_num >= FPS_ARRAY_SZ) {
 		pr_err("%s error to reset, reserve=%d\n", __func__, reserve_num);
-		BUG();
 	}
 	for (i = reserve_num; i < FPS_ARRAY_SZ; i++)
 		fps_ctx->array[i] = 0;
@@ -2724,6 +2724,7 @@ static int decouple_update_rdma_config(void)
 
 static int _requestCondition(int overlap_layers)
 {
+	DISPDBG("request overlap_layers = %d\n", overlap_layers);
 	if (overlap_layers <= 0)
 		return -1;
 	if (overlap_layers > 1)
@@ -2735,6 +2736,7 @@ static int _request_dvfs_perf(int req)
 {
 	if (is_vcorefs_can_work() != 1)
 		return 0;
+	DISPDBG("_request_dvfs_perf = %d\n", req);
 	if (atomic_read(&dvfs_ovl_req_status) != req) {
 		vcorefs_request_dvfs_opp(KIR_OVL, req);
 		atomic_set(&dvfs_ovl_req_status, req);
@@ -4398,18 +4400,17 @@ static int can_bypass_ovl(disp_ddp_path_config *data_config, int *bypass_layer_i
 
 	return 1;
 }
-
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 const unsigned int argb8888_bpp = 4;
+unsigned int full_content;
 int primary_display_get_corner_pattern_width(void)
 {
 	if (pgc->plcm == NULL) {
-		DISPERR("lcm handle is null\n");
-		return 0;
+	    DISPERR("lcm handle is null\n");
+            return 0;
 	}
-
 	if (pgc->plcm->params)
-		return pgc->plcm->params->corner_pattern_width;
+	    return pgc->plcm->params->corner_pattern_width;
 
 	DISPERR("lcm_params is null!\n");
 	return 0;
@@ -4418,22 +4419,50 @@ int primary_display_get_corner_pattern_width(void)
 int primary_display_get_corner_pattern_height(void)
 {
 	if (pgc->plcm == NULL) {
+	    DISPERR("lcm handle is null\n");
+            return 0;
+	}
+	if (pgc->plcm->params)
+	    return pgc->plcm->params->corner_pattern_height;
+
+	DISPERR("lcm_params is null!\n");
+	return 0;
+}
+
+int primary_display_get_corner_pattern_height_bot(void)
+{
+	if (pgc->plcm == NULL) {
 		DISPERR("lcm handle is null\n");
 		return 0;
 	}
 
 	if (pgc->plcm->params)
-		return pgc->plcm->params->corner_pattern_height;
+		return pgc->plcm->params->corner_pattern_height_bot;
+
+	DISPERR("lcm_params is null!\n");
+	return 0;
+}
+
+int primary_display_get_corner_full_content(void)
+{
+	if (pgc->plcm == NULL) {
+		DISPERR("lcm handle is null\n");
+		return 0;
+	}
+
+	if (pgc->plcm->params)
+		return pgc->plcm->params->full_content;
 
 	DISPERR("lcm_params is null!\n");
 	return 0;
 }
 
 int primary_display_get_round_corner_mva(unsigned int *top_mva, unsigned int *bottom_mva,
-				unsigned int *pitch, unsigned int *height)
+				unsigned int *pitch, unsigned int *height, unsigned int *height_bot)
 {
 	unsigned char ret = -1;
 	unsigned int corner_size = 0;
+	unsigned int bt_size = 0;
 	unsigned int dal_buf_size = DAL_GetLayerSize();
 	unsigned int frame_buf_size = DISP_GetFBRamSize();
 	unsigned int  vram_buf_size = mtkfb_get_fb_size();
@@ -4442,30 +4471,42 @@ int primary_display_get_round_corner_mva(unsigned int *top_mva, unsigned int *bo
 	if (vram_buf_size > dal_buf_size + frame_buf_size) {
 		*height = primary_display_get_corner_pattern_height();
 		*pitch = primary_display_get_width();
+		*height_bot = primary_display_get_corner_pattern_height_bot();
+		full_content = primary_display_get_corner_full_content();
 		corner_size = (*pitch) * (*height) * argb8888_bpp;
+		bt_size = (*pitch) * (*height_bot) * argb8888_bpp;
 
-		*top_mva = frame_buf_mva + vram_buf_size - 2 * corner_size;
-		*bottom_mva = *top_mva + corner_size;
+		if (full_content) {
+			*top_mva = frame_buf_mva + vram_buf_size - corner_size;
+			*bottom_mva = *top_mva - bt_size;
+		} else {
+			*top_mva = frame_buf_mva + vram_buf_size - 2 * corner_size;
+			*bottom_mva = *top_mva + corner_size;
+		}
 		ret = 0;
 	} else {
 		DISPERR("vram_buf may not contain corner size!\n");
+		ret = -1;
 	}
 
 	return ret;
 }
+
 void primary_display_set_round_corner_layers(disp_ddp_path_config *cfg)
 {
 	int ret = 0;
 	static unsigned char init_corner;
 	static unsigned int pitch;
 	static unsigned int h;
+	static unsigned int h_bot;
 	static unsigned int top_mva, bottom_mva;
 	OVL_CONFIG_STRUCT *input_bot, *input_top;
 	int bot_cor_layer_id = PRIMARY_SESSION_INPUT_LAYER_COUNT;
 	int top_cor_layer_id = bot_cor_layer_id + 1;
+	h_bot = primary_display_get_corner_pattern_height_bot();
 
 	if (unlikely(init_corner == 0)) {
-		ret = primary_display_get_round_corner_mva(&top_mva, &bottom_mva, &pitch, &h);
+		ret = primary_display_get_round_corner_mva(&top_mva, &bottom_mva, &pitch, &h, &h_bot);
 		init_corner = 1;
 	}
 	if (ret || h == 0 || h > (primary_display_get_height()>>1)) {
@@ -4528,7 +4569,14 @@ void primary_display_set_round_corner_layers(disp_ddp_path_config *cfg)
 	input_top->source = OVL_LAYER_SOURCE_MEM;
 	input_top->security = 0;
 	input_top->yuv_range = 0;
-	DISPMSG("round corner config done");
+
+	DISPDBG("round corner config done");
+
+	if (full_content) {
+		input_top->src_h = h_bot;
+		input_top->dst_y = primary_display_get_height() - h_bot;
+		input_top->dst_h = h_bot;
+	}
 }
 #endif
 static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
@@ -4718,6 +4766,7 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 	unsigned int wdma_mva = 0;
 	disp_path_handle disp_handle;
 	cmdqRecHandle cmdq_handle;
+	struct disp_ccorr_config m_ccorr_config = cfg->ccorr_config;
 
 	primary_display_idlemgr_kick((char *)__func__, 0);
 
@@ -4750,6 +4799,13 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 		primary_show_basic_debug_info(cfg);
 
 	_config_ovl_input(cfg, disp_handle, cmdq_handle);
+
+	/* set ccorr matrix */
+	if (m_ccorr_config.is_dirty) {
+		disp_ccorr_set_color_matrix(cmdq_handle,
+			m_ccorr_config.color_matrix,
+			m_ccorr_config.mode);
+	}
 
 	if (primary_display_is_decouple_mode() && !primary_display_is_mirror_mode()) {
 		pgc->dc_buf_id++;
@@ -4786,6 +4842,7 @@ int primary_display_config_input_multiple(disp_session_input_config *session_inp
 	frame_cfg->setter = session_input->setter;
 	frame_cfg->input_layer_num = session_input->config_layer_num;
 	frame_cfg->overlap_layer_num = 4;
+	frame_cfg->ccorr_config = session_input->ccorr_config;
 	memcpy(frame_cfg->input_cfg, session_input->config, sizeof(frame_cfg->input_cfg));
 
 	_primary_path_lock(__func__);
@@ -5010,7 +5067,6 @@ int do_primary_display_switch_mode(int sess_mode, unsigned int session, int need
 	} else {
 		DISPERR("invalid mode switch from %s to %s\n", session_mode_spy(pgc->session_mode),
 			session_mode_spy(sess_mode));
-		BUG();
 	}
 done:
 	MMProfileLogEx(ddp_mmp_get_events()->primary_mode[pgc->session_mode],
@@ -5279,6 +5335,8 @@ int primary_display_get_max_layer(void)
 	return pgc->max_layer;
 }
 
+
+
 int primary_display_get_info(disp_session_info *info)
 {
 	disp_session_info *dispif_info = (disp_session_info *) info;
@@ -5351,7 +5409,6 @@ int primary_display_get_info(disp_session_info *info)
 
 	fps_ctx_get_fps(&primary_fps_ctx, &dispif_info->updateFPS, &dispif_info->is_updateFPS_stable);
 	dispif_info->updateFPS *= 100;
-
 	return 0;
 }
 
@@ -5911,7 +5968,12 @@ static int _screen_cap_by_cmdq(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt, DI
 	_primary_path_lock(__func__);
 
 	primary_display_idlemgr_kick(__func__, 0);
-	dpmgr_path_add_memout(pgc->dpmgr_handle, after_eng, cmdq_handle);
+	ret = dpmgr_path_add_memout(pgc->dpmgr_handle, after_eng, cmdq_handle);
+	if (ret != 0) {
+		DISPMSG("primary capture:Fail to add memout for capture\n");
+		_primary_path_unlock(__func__);
+		goto out;
+	}
 
 	pconfig = dpmgr_path_get_last_config(pgc->dpmgr_handle);
 	pconfig->wdma_dirty = 1;

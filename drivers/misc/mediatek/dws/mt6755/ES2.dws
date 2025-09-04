@@ -122,6 +122,13 @@
                 <sensitive_level>Edge</sensitive_level>
                 <debounce_en>Disable</debounce_en>
             </eint44>
+            <eint54>
+                <varName>SWTP</varName>
+                <debounce_time>256</debounce_time>
+                <polarity>High</polarity>
+                <sensitive_level>Level</sensitive_level>
+                <debounce_en>Enable</debounce_en>
+            </eint54>
         </module>
         <module name="gpio">
             <count>190</count>
@@ -852,12 +859,12 @@
                 <ies>true</ies>
             </gpio53>
             <gpio54>
-                <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
-                <mode_arr>11000001</mode_arr>
+                <eint_mode>true</eint_mode>
+                <def_mode>0</def_mode>
+                <mode_arr>10000001</mode_arr>
                 <inpull_en>true</inpull_en>
-                <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>OUT</def_dir>
+                <inpull_selhigh>true</inpull_selhigh>
+                <def_dir>IN</def_dir>
                 <in>true</in>
                 <out>true</out>
                 <out_high>false</out_high>

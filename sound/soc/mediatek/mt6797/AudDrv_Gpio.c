@@ -237,8 +237,6 @@ static int set_aud_dat_mosi(bool _enable)
 		return AudDrv_GPIO_Select(GPIO_AUD_DAT_MOSI_OFF);
 }
 
-static DEFINE_MUTEX(gpio_aud_dat_miso_mutex);
-
 static int set_aud_dat_miso(bool _enable, Soc_Aud_Digital_Block _usage)
 {
 	int ret;
@@ -246,7 +244,6 @@ static int set_aud_dat_miso(bool _enable, Soc_Aud_Digital_Block _usage)
 	static bool vow_enable;
 	static bool anc_enable;
 
-	mutex_lock(&gpio_aud_dat_miso_mutex);
 	switch (_usage) {
 	case Soc_Aud_Digital_Block_ADDA_UL:
 		adda_enable = _enable;
@@ -258,7 +255,6 @@ static int set_aud_dat_miso(bool _enable, Soc_Aud_Digital_Block _usage)
 		anc_enable = _enable;
 		break;
 	default:
-		mutex_unlock(&gpio_aud_dat_miso_mutex);
 		return -EINVAL;
 	}
 
@@ -269,7 +265,6 @@ static int set_aud_dat_miso(bool _enable, Soc_Aud_Digital_Block _usage)
 	else
 		ret = AudDrv_GPIO_Select(GPIO_AUD_DAT_MISO_OFF);
 
-	mutex_unlock(&gpio_aud_dat_miso_mutex);
 	return ret;
 }
 
@@ -289,8 +284,11 @@ static int set_anc_dat_mosi(bool _enable)
 		return AudDrv_GPIO_Select(GPIO_ANC_DAT_MOSI_OFF);
 }
 
+static DEFINE_MUTEX(gpio_request_mutex);
+
 int AudDrv_GPIO_Request(bool _enable, Soc_Aud_Digital_Block _usage)
 {
+	mutex_lock(&gpio_request_mutex);
 	switch (_usage) {
 	case Soc_Aud_Digital_Block_ADDA_DL:
 		set_aud_clk_mosi(_enable);
@@ -310,8 +308,10 @@ int AudDrv_GPIO_Request(bool _enable, Soc_Aud_Digital_Block _usage)
 		set_anc_dat_mosi(_enable);
 		break;
 	default:
+		mutex_unlock(&gpio_request_mutex);
 		return -EINVAL;
 	}
+	mutex_unlock(&gpio_request_mutex);
 	return 0;
 }
 
@@ -347,6 +347,7 @@ int AudDrv_GPIO_SMARTPA_Select(int mode)
 		retval = -1;
 	}
 #else
+	mutex_lock(&gpio_request_mutex);
 	switch (mode) {
 	case 0:
 		AudDrv_GPIO_Select(GPIO_SMARTPA_MODE0);
@@ -361,6 +362,7 @@ int AudDrv_GPIO_SMARTPA_Select(int mode)
 		pr_err("%s(), invalid mode = %d", __func__, mode);
 		retval = -1;
 	}
+	mutex_unlock(&gpio_request_mutex);
 #endif
 	return retval;
 }
@@ -386,6 +388,7 @@ int AudDrv_GPIO_TDM_Select(int mode)
 		retval = -1;
 }
 #else
+	mutex_lock(&gpio_request_mutex);
 	switch (mode) {
 	case 0:
 		AudDrv_GPIO_Select(GPIO_TDM_MODE0);
@@ -397,6 +400,7 @@ int AudDrv_GPIO_TDM_Select(int mode)
 		pr_err("%s(), invalid mode = %d", __func__, mode);
 		retval = -1;
 	}
+	mutex_unlock(&gpio_request_mutex);
 #endif
 	return retval;
 }
@@ -542,11 +546,13 @@ int AudDrv_GPIO_HPDEPOP_Select(int bEnable)
 {
 	int retval = 0;
 
+	mutex_lock(&gpio_request_mutex);
 	if (bEnable == 1)
 		AudDrv_GPIO_Select(GPIO_HPDEPOP_LOW);
 	else
 		AudDrv_GPIO_Select(GPIO_HPDEPOP_HIGH);
 
+	mutex_unlock(&gpio_request_mutex);
 	return retval;
 }
 

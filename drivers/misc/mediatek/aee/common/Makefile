@@ -14,6 +14,7 @@
 subdir-ccflags-y += -Idrivers/misc/mediatek/mtprof/
 subdir-ccflags-y += -Idrivers/misc/mediatek/aee/mrdump/
 subdir-ccflags-y += -Idrivers/watchdog/mediatek/include/
+subdir-ccflags-y += -Idrivers/misc/mediatek/base/power/mt6755/
 
 obj-y	+= aee.o
 aee-y	:=dummy.o

@@ -63,9 +63,9 @@ extern void rtc_mark_ftm(void);
 extern void rtc_mark_meta(void);
 extern void rtc_mark_preloader(void);
 extern void rtc_mark_ramtest(void);
-extern void rtc_mark_normal(void);
 extern void rtc_mark_charge(u16 val);
 int get_rtc_spare_charge_value(void);
+extern void rtc_mark_normal(void);
 #else/*ifdef CONFIG_MTK_RTC*/
 #define rtc_read_hw_time()              ({ 0; })
 #define rtc_gpio_enable_32k(user)	do {} while (0)

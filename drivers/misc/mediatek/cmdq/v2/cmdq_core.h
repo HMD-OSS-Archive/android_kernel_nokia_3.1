@@ -114,7 +114,7 @@ else								\
 /* max count of regs */
 #define CMDQ_MAX_COMMAND_SIZE		(0x10000)
 #define CMDQ_MAX_DUMP_REG_COUNT		(2048)
-#define CMDQ_MAX_WRITE_ADDR_COUNT	(PAGE_SIZE / sizeof(u32))
+#define CMDQ_MAX_WRITE_ADDR_COUNT	(2*(PAGE_SIZE / sizeof(u32)))
 #define CMDQ_MAX_DBG_STR_LEN		1024
 
 #ifdef CMDQ_DUMP_FIRSTERROR
@@ -837,7 +837,8 @@ extern "C" {
  * Return:
  *     task pointer if available
  */
-	struct TaskStruct *cmdq_core_get_task_ptr(void *task_handle);
+	struct TaskStruct *cmdq_core_get_task_ptr(
+		struct TaskStruct *task_handle);
 
 /**
  * Immediately clear CMDQ event to 0 with CPU
@@ -1038,6 +1039,12 @@ extern "C" {
 								CmdqResourceReleaseCB resourceRelease);
 
 	void cmdq_core_dump_dts_setting(void);
+/*
+ * cmdq_core_get_running_task_by_engine_unlock
+ *
+ * Get copy of running task in hardware thread by provide engine flags.
+ * Lock gCmdqExecLock before call to protect hardware state and source task.
+ */
 	int32_t cmdq_core_get_running_task_by_engine_unlock(uint64_t engineFlag,
 		uint32_t userDebugStrLen, struct TaskStruct *p_out_task);
 	int32_t cmdq_core_get_running_task_by_engine(uint64_t engineFlag,

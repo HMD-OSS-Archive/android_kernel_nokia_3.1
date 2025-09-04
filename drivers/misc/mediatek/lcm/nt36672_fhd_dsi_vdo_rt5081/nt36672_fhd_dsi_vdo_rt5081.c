@@ -240,7 +240,7 @@ static void lcm_get_params(LCM_PARAMS *params)
 	// DSI
 	/* Command mode setting */
 	params->dsi.LANE_NUM		= 4;	// 4
-	params->dsi.PLL_CLOCK 		= 476;	//371/2;  //4lane
+	params->dsi.PLL_CLOCK 		= 481;	//371/2;  //4lane
 
 #if 1
 	//The following defined the fomat for data coming from LCD engine.
@@ -268,7 +268,7 @@ static void lcm_get_params(LCM_PARAMS *params)
 
 	params->dsi.horizontal_sync_active	= 4;
 	params->dsi.horizontal_backporch	= 54;
-	params->dsi.horizontal_frontporch	= 54;
+	params->dsi.horizontal_frontporch	= 64;
 	params->dsi.horizontal_active_pixel	= FRAME_WIDTH;
 
 	//improve clk quality

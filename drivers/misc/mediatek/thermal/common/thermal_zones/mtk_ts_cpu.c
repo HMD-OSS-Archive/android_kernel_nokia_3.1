@@ -203,6 +203,7 @@ static void _mt_thermal_aee_init(void)
 	aee_rr_rec_thermal_temp5(0xFF);
 	aee_rr_rec_thermal_status(0xFF);
 	aee_rr_rec_thermal_ATM_status(0xFF);
+	aee_rr_rec_thermal_wq_status(0);
 	aee_rr_rec_thermal_ktime(0xFFFFFFFFFFFFFFFF);
 }
 #endif
@@ -623,7 +624,11 @@ static int tscpu_get_temp(struct thermal_zone_device *thermal, unsigned long *t)
 #else
 	curr_temp = tscpu_get_curr_temp();
 #endif
-	tscpu_dprintk("%s CPU T=%d\n", __func__, curr_temp);
+	if (curr_temp > 100000)
+		tscpu_warn("%s CPU T=%d, num_trip=%d, trip_1=%d %s, interval_ms=%d\n",
+			__func__, curr_temp, num_trip, trip_temp[1], g_bind1, interval);
+	else
+		tscpu_dprintk("%s CPU T=%d\n", __func__, curr_temp);
 
 	if ((curr_temp > (trip_temp[0] - 15000)) || (curr_temp < -30000) || (curr_temp > 85000)) {
 		printk_ratelimited(TSCPU_LOG_TAG " %u %u CPU T=%d\n",
@@ -2267,8 +2272,9 @@ void tscpu_update_tempinfo(void)
 #endif
 }
 
-#ifdef FAST_RESPONSE_ATM
 DEFINE_SPINLOCK(timer_lock);
+static int wq_count;
+#ifdef FAST_RESPONSE_ATM
 int is_worktimer_en = 1;
 #endif
 
@@ -2283,6 +2289,8 @@ void tscpu_workqueue_cancel_timer(void)
 		isTimerCancelled = 1;
 		spin_lock(&timer_lock);
 		is_worktimer_en = 0;
+		wq_count--;
+		aee_rr_rec_thermal_wq_status(wq_count);
 		spin_unlock(&timer_lock);
 		tscpu_dprintk("[tTimer] workqueue stopped\n");
 	}
@@ -2295,6 +2303,10 @@ void tscpu_workqueue_cancel_timer(void)
 	if (thz_dev) {
 		cancel_delayed_work(&(thz_dev->poll_queue));
 		isTimerCancelled = 1;
+		spin_lock(&timer_lock);
+		wq_count--;
+		aee_rr_rec_thermal_wq_status(wq_count);
+		spin_unlock(&timer_lock);
 	}
 
 	up(&sem_mutex);
@@ -2315,6 +2327,8 @@ void tscpu_workqueue_start_timer(void)
 		isTimerCancelled = 0;
 		spin_lock(&timer_lock);
 		is_worktimer_en = 1;
+		wq_count++;
+		aee_rr_rec_thermal_wq_status(wq_count);
 		spin_unlock(&timer_lock);
 		tscpu_dprintk("[tTimer] workqueue started\n");
 	}
@@ -2332,6 +2346,10 @@ void tscpu_workqueue_start_timer(void)
 		mod_delayed_work(system_freezable_wq, &(thz_dev->poll_queue),
 			round_jiffies(msecs_to_jiffies(1000)));
 		isTimerCancelled = 0;
+		spin_lock(&timer_lock);
+		wq_count++;
+		aee_rr_rec_thermal_wq_status(wq_count);
+		spin_unlock(&timer_lock);
 	}
 
 	up(&sem_mutex);

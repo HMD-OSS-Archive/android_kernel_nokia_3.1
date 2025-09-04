@@ -34,11 +34,6 @@
 			initrd=0x44000000,0x200000 loglevel=8 androidboot.selinux=permissive";
 	};
 
-	pmu {
-		compatible = "arm,armv8-pmuv3";
-		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
-	};
-
 	/* Do not put any bus before mtk-msdc, because it should be mtk-msdc.0 for partition device node usage */
 	/* Kernel-3.18 can't transfer this node to mtk-msdc.0. So workaround here */
 	mtk-msdc.0 {
@@ -77,6 +72,11 @@
 		cpu_off		= <0x84000002>;
 		cpu_on		= <0x84000003>;
 		affinity_info	= <0x84000004>;
+	};
+
+	pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
 	};
 
 	mobicore {
@@ -2831,6 +2831,10 @@
 			compatible = "mediatek,mt_soc_pcm_dl1_i2s0dl1";
 		};
 
+		mt_soc_deep_buffer_dl_pcm@11220000 {
+			compatible = "mediatek,mt_soc_pcm_deep_buffer_dl";
+		};
+
 		mt_soc_dl1_awb_pcm@11220000 {
 			compatible = "mediatek,mt_soc_pcm_dl1_awb";
 		};
@@ -2907,10 +2911,6 @@
 
 		mt_soc_dl2_pcm@11220000 {
 			compatible = "mediatek,mt_soc_pcm_dl2";
-		};
-
-		mt_soc_anc_pcm@11220000 {
-			compatible = "mediatek,mt_soc_pcm_anc";
 		};
 
 		mt_soc_pcm_voice_ultra@11220000 {
@@ -3765,12 +3765,24 @@
 			vcn33_wifi-supply = <&mt_pmic_vcn33_wifi_ldo_reg>;
 		};
 
-		wifi: wifi@180f0000 {
-			compatible = "mediatek,wifi";
-			reg = <0x180f0000 0x1100>;
-			interrupts = <GIC_SPI 283 IRQ_TYPE_LEVEL_LOW>;
-			clocks = <&infrasys INFRA_AP_DMA>;
-			clock-names = "wifi-dma";
+		connsys-wifi {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			wifi: wifi@180f0000 {
+				compatible = "mediatek,wifi";
+
+				reg = <0 0x180f0000 0 0x1100>,
+				      <0 0x11000080 0 0x0080>; /* DMA base */
+				interrupts = <GIC_SPI 283 IRQ_TYPE_LEVEL_LOW>,
+					     <GIC_SPI 97 IRQ_TYPE_LEVEL_LOW>; /* DMA IRQ */
+				clocks = <&infrasys INFRA_AP_DMA>;
+				clock-names = "wifi-dma";
+				hardware-values = <0x00000279>, /* HW code */
+						  <0x000a2800>, /* FW load addr */
+						  <0x000a2800>; /* FW start addr */
+			};
 		};
 
 		gic1@19000000 {

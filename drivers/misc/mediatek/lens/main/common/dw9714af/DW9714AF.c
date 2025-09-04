@@ -39,7 +39,7 @@
 static struct i2c_client *g_pstAF_I2Cclient;
 static int *g_pAF_Opened;
 static spinlock_t *g_pAF_SpinLock;
-struct stAF_MotorInfo proc_stMotorInfo;
+extern struct stAF_MotorInfo proc_stMotorInfo;
 
 static unsigned long g_u4AF_INF;
 static unsigned long g_u4AF_MACRO = 1023;

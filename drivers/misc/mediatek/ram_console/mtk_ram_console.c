@@ -157,6 +157,7 @@ struct last_reboot_reason {
 	uint8_t thermal_status;
 	uint8_t thermal_ATM_status;
 	uint64_t thermal_ktime;
+	int8_t thermal_wq_status;
 
 	uint8_t isr_el1;
 
@@ -1479,6 +1480,13 @@ void aee_rr_rec_thermal_ktime(u64 val)
 	LAST_RR_SET(thermal_ktime, val);
 }
 
+void aee_rr_rec_thermal_wq_status(s8 val)
+{
+	if (!ram_console_init_done || !ram_console_buffer)
+		return;
+	LAST_RR_SET(thermal_wq_status, val);
+}
+
 void aee_rr_rec_isr_el1(u8 val)
 {
 	if (!ram_console_init_done || !ram_console_buffer)
@@ -1781,6 +1789,11 @@ u8 aee_rr_curr_thermal_ATM_status(void)
 u64 aee_rr_curr_thermal_ktime(void)
 {
 	return LAST_RR_VAL(thermal_ktime);
+}
+
+s8 aee_rr_curr_thermal_wq_status(void)
+{
+	return LAST_RR_VAL(thermal_wq_status);
 }
 
 u8 aee_rr_curr_isr_el1(void)
@@ -2548,6 +2561,11 @@ void aee_rr_show_thermal_ktime(struct seq_file *m)
 	seq_printf(m, "thermal_ktime: %lld\n", LAST_RRR_VAL(thermal_ktime));
 }
 
+void aee_rr_show_thermal_wq_status(struct seq_file *m)
+{
+	seq_printf(m, "thermal_wq_status: %d\n", LAST_RRR_VAL(thermal_wq_status));
+}
+
 void aee_rr_show_scp_pc(struct seq_file *m)
 {
 	seq_printf(m, "scp_pc: 0x%x\n", LAST_RRR_VAL(scp_pc));
@@ -2736,6 +2754,7 @@ last_rr_show_t aee_rr_show[] = {
 	aee_rr_show_thermal_status,
 	aee_rr_show_thermal_ATM_status,
 	aee_rr_show_thermal_ktime,
+	aee_rr_show_thermal_wq_status,
 	aee_rr_show_isr_el1,
 	aee_rr_show_idvfs_ctrl_reg,
 	aee_rr_show_idvfs_enable_cnt,

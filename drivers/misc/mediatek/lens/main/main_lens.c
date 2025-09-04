@@ -71,7 +71,7 @@ static struct i2c_board_info kd_lens_dev __initdata = {
 #else
 #define LOG_INF(format, args...)
 #endif
-extern struct stAF_MotorInfo proc_stMotorInfo;
+struct stAF_MotorInfo proc_stMotorInfo;
 
 static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	{1, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl, AK7371AF_Release},
@@ -86,6 +86,9 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	},
 #ifdef CONFIG_MTK_LENS_DW9714AF_SUPPORT
 	{1, AFDRV_DW9714AF, DW9714AF_SetI2Cclient, DW9714AF_Ioctl, DW9714AF_Release},
+#endif        
+#ifdef CONFIG_MTK_LENS_FP5510AF_SUPPORT
+	{1, AFDRV_FP5510AF, FP5510AF_SetI2Cclient, FP5510AF_Ioctl, FP5510AF_Release},
 #endif        
 #ifdef CONFIG_MTK_LENS_FP5516AF_SUPPORT
 	{1, AFDRV_FP5516AF, FP5516AF_SetI2Cclient, FP5516AF_Ioctl, FP5516AF_Release},

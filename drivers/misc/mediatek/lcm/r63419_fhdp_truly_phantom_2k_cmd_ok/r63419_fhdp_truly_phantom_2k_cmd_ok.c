@@ -54,7 +54,7 @@
 #endif
 
 /* static unsigned char lcd_id_pins_value = 0xFF; */
-static const unsigned char LCD_MODULE_ID = 0x01; /*  haobing modified 2013.07.11 */
+static const unsigned char LCD_MODULE_ID = 0x01; /* haobing modified 2013.07.11 */
 /**
  * Local Constants
  */
@@ -324,6 +324,7 @@ static struct LCM_setting_table lcm_initialization_setting[] = {
 		    0x04, 0x00, 0x00, 0x69, 0x5A} },
 	/* self check module */
 	{0xB0, 1, {0x03} },/*Manufacturer Command Access Protect */
+	{0x44, 2, {0x00, 0x20} },
 	{0x35, 1, {0x00} },
 	/* {0x51, 1, {0xFF} }, */
 	{0x53, 1, {0x2C} },/* BL=1h */
@@ -777,7 +778,6 @@ static unsigned int lcm_compare_id(void)
 static unsigned int lcm_ata_check(unsigned char *buffer)
 {
 #ifndef BUILD_LK
-
 	return 1;
 #endif
 }
@@ -816,6 +816,5 @@ LCM_DRIVER r63419_fhdp_truly_phantom_lcm_drv = {
 #if (LCM_DSI_CMD_MODE)
 	.update		= lcm_update,
 #endif
-
 };
 /* END PN:DTS2013053103858 , Added by d00238048, 2013.05.31*/

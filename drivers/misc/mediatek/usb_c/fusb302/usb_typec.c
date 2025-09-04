@@ -73,8 +73,6 @@ const char string_conection_state[18][32] = {
 	"DelayUnattached",
 };
 
-static struct delayed_work recovery_work;
-static atomic_t is_recovery = ATOMIC_INIT(0);
 
 /* /////////////////////////////////////////////////////////////////////////// */
 /* Variables accessible outside of the FUSB300 state machine */
@@ -232,7 +230,6 @@ void StateMachineFUSB300(struct usbtypc *typec)
 	FUSB300Read(regStatus0, 2, (unsigned char *)&Registers.Status.Status);	/* Read the status */
 	FUSB300Read(regInterrupta, 2, (unsigned char *)&Registers.Status.InterruptAdv);	/* Read the status */
 	FUSB300Read(regStatus0a, 2, (unsigned char *)&Registers.Status.StatusAdv);	/* Read the status */
-
 	fusb_printk(K_DEBUG, "StatusAdv==0x%x\n", Registers.Status.StatusAdv);
 	fusb_printk(K_DEBUG, "InterruptAdv==0x%x\n", Registers.Status.InterruptAdv);
 	fusb_printk(K_DEBUG, "Status==0x%x\n", Registers.Status.Status);
@@ -340,59 +337,19 @@ void StateMachineDelayUnattached(void)
 		SetStateUnattached();
 }
 
-static void do_recovery_work(struct work_struct *data)
-{
-	fusb_printk(K_INFO, "%s Force DRP %d\n", __func__, atomic_read(&is_recovery));
-
-	if (atomic_read(&is_recovery) != 1)
-		return;
-
-	Registers.Control.TOGGLE = 0;	/* Disable the toggle in order to clear... */
-	/* Commit the control state */
-	FUSB300Write(regControl2, 1, &Registers.Control.byte[2]);
-
-	udelay(10);
-
-	/* Re-enable the toggle state machine... (allows us to get another I_TOGDONE interrupt) */
-	Registers.Control.TOGGLE = 1;
-	Registers.Control.MODE = 1;
-
-	/* Commit the control state */
-	FUSB300Write(regControl2, 1, &Registers.Control.byte[2]);
-
-	atomic_set(&is_recovery, 0);
-}
-
-static inline void cancel_recovery(void)
-{
-	if (atomic_read(&is_recovery) == 1)
-		cancel_delayed_work_sync(&recovery_work);
-
-	atomic_set(&is_recovery, 0);
-}
-
 void StateMachineUnattached(void)
 {
-	static int disable_cnt;
-
-	fusb_printk(K_INFO, "%s %d TOGDONE=0x%x, TOGSS=0x%x\n", __func__, disable_cnt,
-		Registers.Status.I_TOGDONE, Registers.Status.TOGSS);
-
 	if (Registers.Status.I_TOGDONE) {
 		switch (Registers.Status.TOGSS) {
 		case 0x05:	/* Rp detected on CC1 */
 			blnCCPinIsCC1 = TRUE;
 			blnCCPinIsCC2 = FALSE;
 			SetStateAttachWaitSnk();	/* Go to the AttachWaitSnk state */
-			disable_cnt = 0;
-			cancel_recovery();
 			break;
 		case 0x06:	/* Rp detected on CC2 */
 			blnCCPinIsCC1 = FALSE;
 			blnCCPinIsCC2 = TRUE;
 			SetStateAttachWaitSnk();	/* Go to the AttachWaitSnk state */
-			disable_cnt = 0;
-			cancel_recovery();
 			break;
 		case 0x01:	/* Rd detected on CC1 */
 			blnCCPinIsCC1 = TRUE;
@@ -402,8 +359,6 @@ void StateMachineUnattached(void)
 				SetStateAttachWaitAcc();	/* Go to the AttachWaitAcc state */
 			else	/* Otherwise we must be configured as a source or DRP */
 				SetStateAttachWaitSrc();	/* So go to the AttachWaitSnk state */
-			disable_cnt = 0;
-			cancel_recovery();
 			break;
 		case 0x02:	/* Rd detected on CC2 */
 			blnCCPinIsCC1 = FALSE;
@@ -413,8 +368,6 @@ void StateMachineUnattached(void)
 				SetStateAttachWaitAcc();	/* Go to the AttachWaitAcc state */
 			else	/* Otherwise we must be configured as a source or DRP */
 				SetStateAttachWaitSrc();	/* So go to the AttachWaitSnk state */
-			disable_cnt = 0;
-			cancel_recovery();
 			break;
 		case 0x07:	/* Ra detected on both CC1 and CC2 */
 			blnCCPinIsCC1 = FALSE;
@@ -424,8 +377,6 @@ void StateMachineUnattached(void)
 				SetStateAttachWaitAcc();	/* Go to the AttachWaitAcc state */
 			else	/* Otherwise we must be configured as a source or DRP */
 				SetStateAttachWaitSrc();	/* So go to the AttachWaitSnk state */
-			disable_cnt = 0;
-			cancel_recovery();
 			break;
 		default:	/* Shouldn't get here, but just in case reset everything... */
 			Registers.Control.TOGGLE = 0;	/* Disable the toggle in order to clear... */
@@ -434,35 +385,10 @@ void StateMachineUnattached(void)
 			udelay(10);
 			/* Re-enable the toggle state machine... (allows us to get another I_TOGDONE interrupt) */
 			Registers.Control.TOGGLE = 1;
-
 			/* Commit the control state */
 			FUSB300Write(regControl2, 1, &Registers.Control.byte[2]);
 			break;
 		}
-	}
-
-	if ((Registers.Status.InterruptAdv == 0) && (Registers.Status.Interrupt1 == 0x20))
-		disable_cnt++;
-
-	if (disable_cnt == 20) {
-		disable_cnt = 0;
-		fusb_printk(K_INFO, "%s Force UFP\n", __func__);
-
-		Registers.Control.TOGGLE = 0;	/* Disable the toggle in order to clear... */
-		/* Commit the control state */
-		FUSB300Write(regControl2, 1, &Registers.Control.byte[2]);
-
-		udelay(10);
-
-		/* Re-enable the toggle state machine... (allows us to get another I_TOGDONE interrupt) */
-		Registers.Control.TOGGLE = 1;
-		Registers.Control.MODE = 2;
-
-		/* Commit the control state */
-		FUSB300Write(regControl2, 1, &Registers.Control.byte[2]);
-
-		atomic_set(&is_recovery, 1);
-		schedule_delayed_work(&recovery_work, msecs_to_jiffies(30*1000));
 	}
 	/* rand(); */
 }
@@ -1935,6 +1861,8 @@ static int usb3_switch_en(struct usbtypc *typec, int on)
 
 	fusb_printk(K_DEBUG, "%s on=%d\n", __func__, on);
 
+	spin_lock(&typec->fsm_lock);
+
 	if (on == ENABLE) {	/*enable usb switch */
 		pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_oen_low);
 		typec->u3_sw->en = ENABLE;
@@ -1942,6 +1870,8 @@ static int usb3_switch_en(struct usbtypc *typec, int on)
 		pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_oen_high);
 		typec->u3_sw->en = DISABLE;
 	}
+
+	spin_unlock(&typec->fsm_lock);
 
 	/*fusb_printk(K_DEBUG, "%s gpio=%d\n", __func__, gpio_get_value(typec->u3_sw->en_gpio));*/
 end:
@@ -1960,6 +1890,8 @@ static int usb3_switch_sel(struct usbtypc *typec, int sel)
 
 	fusb_printk(K_DEBUG, "%s on=%d\n", __func__, sel);
 
+	spin_lock(&typec->fsm_lock);
+
 	if (sel == UP_SIDE) {	/*select SW1 */
 		pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_sel_low);
 		typec->u3_sw->sel = sel;
@@ -1967,6 +1899,8 @@ static int usb3_switch_sel(struct usbtypc *typec, int sel)
 		pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_sel_high);
 		typec->u3_sw->sel = sel;
 	}
+
+	spin_unlock(&typec->fsm_lock);
 
 	/*fusb_printk(K_DEBUG, "%s gpio=%d\n", __func__, gpio_get_value(typec->u3_sw->sel_gpio));*/
 end:
@@ -2081,11 +2015,15 @@ int usb3_switch_init(struct usbtypc *typec)
 	typec->u3_sw->sel_gpio = 252;
 	typec->u3_sw->sel = DOWN_SIDE;
 
+	spin_lock(&typec->fsm_lock);
+
 	/*chip enable pin*/
 	pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_oen_init);
 
 	/*dir selection */
 	pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_sel_init);
+
+	spin_unlock(&typec->fsm_lock);
 
 	/*fusb_printk(K_DEBUG, "en_gpio=0x%X, out=%d\n", typec->u3_sw->en_gpio,
 		    gpio_get_value(typec->u3_sw->en_gpio));*/
@@ -2110,8 +2048,12 @@ int usb_redriver_init(struct usbtypc *typec)
 	typec->u_rd->c2_gpio = u3_eq_c2;
 	typec->u_rd->eq_c2 = U3_EQ_LOW;
 
+	spin_lock(&typec->fsm_lock);
+
 	pinctrl_select_state(typec->pinctrl, typec->pin_cfg->re_c1_init);
 	pinctrl_select_state(typec->pinctrl, typec->pin_cfg->re_c2_init);
+
+	spin_unlock(&typec->fsm_lock);
 
 	/*fusb_printk(K_DEBUG, "c1_gpio=0x%X, out=%d\n", typec->u_rd->c1_gpio,
 		    gpio_get_value(typec->u_rd->c1_gpio));*/
@@ -2140,6 +2082,8 @@ int usb_redriver_config(struct usbtypc *typec, int ctrl_pin, int stat)
 	}
 
 	fusb_printk(K_DEBUG, "%s pin=%d, stat=%d\n", __func__, ctrl_pin, stat);
+
+	spin_lock(&typec->fsm_lock);
 
 	if (ctrl_pin == U3_EQ_C1) {
 		pin_num = typec->u_rd->c1_gpio;
@@ -2176,6 +2120,8 @@ int usb_redriver_config(struct usbtypc *typec, int ctrl_pin, int stat)
 		retval = -EINVAL;
 		break;
 	}
+
+	spin_unlock(&typec->fsm_lock);
 
 	/*fusb_printk(K_DEBUG, "%s gpio=%d, out=%d\n", __func__, pin_num,
 		    gpio_get_value(pin_num));*/
@@ -2748,8 +2694,6 @@ static int fusb300_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	usb3_switch_init(typec);
 	fusb300_eint_init(typec);
 	fusb_printk(K_INFO, "%s %x\n", __func__, fusb300_i2c_r_reg(client, 0x1));
-
-	INIT_DELAYED_WORK(&recovery_work, do_recovery_work);
 
 	/*precheck status */
 	/* StateMachineFUSB300(typec); */

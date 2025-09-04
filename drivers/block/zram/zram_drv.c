@@ -158,11 +158,6 @@ static struct zram_table_entry *search_node_in_zram_tree(struct zram_table_entry
 		pr_err("[zram][search_node_in_zram_tree] input_node is NULL\n");
 		return NULL;
 	}
-	if (current_node == NULL) {
-		*new_node = new;
-		*parent_node = NULL;
-		return NULL;
-	}
 
 	while (*new) {
 		current_node = rb_entry(*new, struct zram_table_entry, node);
@@ -200,9 +195,7 @@ static u32 insert_node_to_zram_tree(struct zram *zram, struct zram_meta *meta, u
 	/* found node in zram_tree */
 	if (NULL != current_node) {
 		if (!zsm_test_flag(meta, current_node, ZRAM_RB_NODE)) {
-			pr_err("[ZRAM]ERROR !!found wrong rb node 0x%p flag %c\n"
-				, (void *)current_node
-				, current_node->flags);
+			pr_err("[ZRAM]ERROR !!found wrong rb node 0x%p\n", (void *)current_node);
 			BUG_ON(1);
 		}
 

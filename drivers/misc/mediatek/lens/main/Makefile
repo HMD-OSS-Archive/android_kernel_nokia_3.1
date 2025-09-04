@@ -39,6 +39,9 @@ mainaf-y  += common/bu6429af/BU6429AF.o
 ifeq ($(CONFIG_MTK_LENS_DW9714AF_SUPPORT), y)
 mainaf-y  += common/dw9714af/DW9714AF.o
 endif
+ifeq ($(CONFIG_MTK_LENS_FP5510AF_SUPPORT), y)
+mainaf-y  += common/fp5510af/FP5510AF.o
+endif
 mainaf-y  += common/dw9814af/DW9814AF.o
 ifeq ($(CONFIG_MTK_LENS_FP5516AF_SUPPORT), y)
 mainaf-y  += common/fp5516af/FP5516AF.o

@@ -89,7 +89,7 @@ static int primary_display_basic_test(int layer_num, int w, int h, DISP_FORMAT f
 	disp_session_input_config *input_config;
 	int session_id = MAKE_DISP_SESSION(DISP_SESSION_PRIMARY, 0);
 	unsigned int Bpp;
-	int frame, i, ret;
+	int frame, i, ret = 0;
 	enum UNIFIED_COLOR_FMT ufmt;
 
 	/* allocate buffer */
@@ -123,7 +123,12 @@ static int primary_display_basic_test(int layer_num, int w, int h, DISP_FORMAT f
 		static struct sg_table table;
 		struct sg_table *sg_table = &table;
 
-		sg_alloc_table(sg_table, 1, GFP_KERNEL);
+		ret = sg_alloc_table(sg_table, 1, GFP_KERNEL);
+		if (ret) {
+			DISPMSG("%s: sg_alloc_table failed\n", __func__);
+			kfree(input_config);
+			return -ENOMEM;
+		}
 
 		sg_dma_address(sg_table->sgl) = buf_pa;
 		sg_dma_len(sg_table->sgl) = size_align;

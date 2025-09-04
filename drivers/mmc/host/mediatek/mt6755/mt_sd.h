@@ -34,6 +34,8 @@
 
 #define MSDC_WQ_ERROR_TUNE
 
+#define MTK_EMMC_CMD_DEBUG
+
 #define MSDC_AUTOK_ON_ERROR
 #ifdef MSDC_AUTOK_ON_ERROR
 /*#define DATA_TUNE_READ_DATA_ALLOW_FALLING_EDGE*/
@@ -453,9 +455,6 @@ struct msdc_host {
 	struct delayed_work	work_init; /* for init mmc card */
 	struct platform_device  *pdev;
 
-	u64                     last_cg_set_time;
-	u64                     last_cg_clr_time;
-
 #ifdef MSDC_WQ_ERROR_TUNE
 	struct work_struct	work_tune; /* new thread tune */
 	struct mmc_request	*mrq_tune; /* backup host->mrq */
@@ -710,7 +709,9 @@ enum {
 	ENABLE_AXI_MODULE = 26,
 	SDIO_AUTOK_RESULT = 27,
 	DO_AUTOK_OFFLINE_TUNE_TX = 29,
-	MMC_CMDQ_STATUS = 30
+	MMC_CMDQ_STATUS = 30,
+	/* for DB dump, do not change index */
+	MMC_HANG_DETECT_DUMP = 256,
 };
 
 enum {
@@ -718,6 +719,20 @@ enum {
 	MODE_DMA = 1,
 	MODE_SIZE_DEP = 2,
 };
+
+#define SPREAD_PRINTF(buff, size, fmt, args...) \
+do { \
+	if (buff && size && *(size)) { \
+		unsigned long var = snprintf(*(buff), *(size), fmt, ##args); \
+		if (var > 0) { \
+			*(size) -= var; \
+			*(buff) += var; \
+		} \
+	} \
+	if (!buff) { \
+		pr_info(fmt, ##args); \
+	} \
+} while (0)
 
 /* Variable declared in dbg.c */
 extern u32 msdc_host_mode[];

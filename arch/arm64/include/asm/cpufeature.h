@@ -31,7 +31,10 @@
 #define ARM64_ALT_PAN_NOT_UAO			6
 #define ARM64_WORKAROUND_855872			7
 
-#define ARM64_NCAPS				8
+#define ARM64_UNMAP_KERNEL_AT_EL0		23
+#define ARM64_HARDEN_BRANCH_PREDICTOR		24
+
+#define ARM64_NCAPS				25
 
 #ifndef __ASSEMBLY__
 
@@ -94,6 +97,8 @@ struct arm64_cpu_capabilities {
 };
 
 extern DECLARE_BITMAP(cpu_hwcaps, ARM64_NCAPS);
+
+bool this_cpu_has_cap(unsigned int cap);
 
 static inline bool cpu_have_feature(unsigned int num)
 {
@@ -162,7 +167,9 @@ void __init setup_cpu_features(void);
 
 void update_cpu_capabilities(const struct arm64_cpu_capabilities *caps,
 			    const char *info);
+void enable_cpu_capabilities(const struct arm64_cpu_capabilities *caps);
 void check_local_cpu_errata(void);
+void __init enable_errata_workarounds(void);
 
 #ifdef CONFIG_HOTPLUG_CPU
 void verify_local_cpu_capabilities(void);

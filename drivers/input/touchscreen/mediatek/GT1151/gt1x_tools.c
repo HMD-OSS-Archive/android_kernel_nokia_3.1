@@ -50,7 +50,8 @@ typedef struct {
 } st_cmd_head;
 #pragma pack()
 st_cmd_head cmd_head;
-struct mutex rw_mutex;
+static DEFINE_MUTEX(rw_mutex);
+
 
 s32 DATA_LENGTH = 0;
 s8 IC_TYPE[16] = "GT9XX";
@@ -294,6 +295,9 @@ static ssize_t gt1x_tool_write(struct file *filp, const char __user *buff, size_
 		return cmd_head.data_len + CMD_HEAD_LENGTH;
 	} else if (3 == cmd_head.wr) {	/*gt1x unused*/
 
+		cmd_head.data_len =
+			cmd_head.data_len > sizeof(IC_TYPE) ?
+				sizeof(IC_TYPE) : cmd_head.data_len;
 		memcpy(IC_TYPE, cmd_head.data, cmd_head.data_len);
 		return cmd_head.data_len + CMD_HEAD_LENGTH;
 	} else if (5 == cmd_head.wr) {
@@ -378,13 +382,14 @@ Output:
 ********************************************************/
 static ssize_t gt1x_tool_read(struct file *filp, char __user *buffer, size_t count, loff_t *ppos)
 {
+	unsigned char tmp_buf[4];
+
 	GTP_DEBUG_FUNC();
 	if (*ppos) {
 		GTP_DEBUG("[PARAM]size: %d, *ppos: %d", (int)count, (int)*ppos);
 		*ppos = 0;
 		return 0;
 	}
-
 	if (cmd_head.data_len > DATA_LENGTH)
 		cmd_head.data_len = DATA_LENGTH;
 	mutex_lock(&rw_mutex);
@@ -424,8 +429,14 @@ static ssize_t gt1x_tool_read(struct file *filp, char __user *buffer, size_t cou
 				mutex_unlock(&rw_mutex);
 				return -1;
 			}
-			memcpy(&buffer[loc], &cmd_head.data[GTP_ADDR_LENGTH], len);
+			if (count < len)
+				goto fail;
+			if (copy_to_user(&buffer[loc], &cmd_head.data[GTP_ADDR_LENGTH], len)) {
+				mutex_unlock(&rw_mutex);
+				return -EFAULT;
+			}
 			data_len -= len;
+			count -= len;
 			addr += len;
 			loc += len;
 			GTP_DEBUG_ARRAY(&cmd_head.data[GTP_ADDR_LENGTH], len);
@@ -438,10 +449,16 @@ static ssize_t gt1x_tool_read(struct file *filp, char __user *buffer, size_t cou
 		mutex_unlock(&rw_mutex);
 		return -1;
 	} else if (4 == cmd_head.wr) {
-		buffer[0] = update_info.progress >> 8;
-		buffer[1] = update_info.progress & 0xff;
-		buffer[2] = update_info.max_progress >> 8;
-		buffer[3] = update_info.max_progress & 0xff;
+		tmp_buf[0] = update_info.progress >> 8;
+		tmp_buf[1] = update_info.progress & 0xff;
+		tmp_buf[2] = update_info.max_progress >> 8;
+		tmp_buf[3] = update_info.max_progress & 0xff;
+		if (count < 4)
+			goto fail;
+		if (copy_to_user(&buffer, tmp_buf, 4)) {
+			mutex_unlock(&rw_mutex);
+			return -EFAULT;
+		}
 		*ppos += 4;
 		mutex_unlock(&rw_mutex);
 		return 4;
@@ -453,8 +470,17 @@ static ssize_t gt1x_tool_read(struct file *filp, char __user *buffer, size_t cou
 		s32 tmp_len;
 
 		tmp_len = strlen(GTP_DRIVER_VERSION);
-		memcpy(buffer, GTP_DRIVER_VERSION, tmp_len);
-		buffer[tmp_len] = 0;
+		if (count < (tmp_len + 1))
+			goto fail;
+		if (copy_to_user(&buffer, GTP_DRIVER_VERSION, tmp_len)) {
+			mutex_unlock(&rw_mutex);
+			return -EFAULT;
+		}
+		tmp_buf[0] = 0;
+		if (copy_to_user(&buffer, tmp_buf, 1)) {
+			mutex_unlock(&rw_mutex);
+			return -EFAULT;
+		}
 		*ppos += tmp_len + 1;
 		tmp_len += 1;
 		mutex_unlock(&rw_mutex);
@@ -463,5 +489,9 @@ static ssize_t gt1x_tool_read(struct file *filp, char __user *buffer, size_t cou
 	*ppos += cmd_head.data_len;
 	mutex_unlock(&rw_mutex);
 	return cmd_head.data_len;
+fail:
+	mutex_unlock(&rw_mutex);
+	return -1;
+
 }
 MODULE_LICENSE("GPL");
