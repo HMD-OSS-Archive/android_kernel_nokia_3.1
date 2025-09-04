@@ -159,6 +159,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_batt_vol,
 	/*Jason: BAT_ID*/
 	POWER_SUPPLY_PROP_bat_id,
+	POWER_SUPPLY_PROP_bat_id_volt,
 	POWER_SUPPLY_PROP_batt_temp,
 	/* Add for EM */
 	POWER_SUPPLY_PROP_TemperatureR,

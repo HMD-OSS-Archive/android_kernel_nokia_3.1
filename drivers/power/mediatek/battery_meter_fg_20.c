@@ -513,6 +513,15 @@ kal_bool gFG_Is_offset_init = KAL_FALSE;
 
 #ifdef MTK_MULTI_BAT_PROFILE_SUPPORT
 unsigned int g_fg_battery_id = 0;
+int g_bat_id_volt = 0;
+
+static int __init bat_id_volt_param(char *str)
+{
+	get_option(&str, &g_bat_id_volt);
+	bm_err("get from cmdline g_bat_id_bolt=%d\n",g_bat_id_volt);
+	return 1;
+}
+__setup("bat_id_volt=", bat_id_volt_param);
 
 #ifdef MTK_GET_BATTERY_ID_BY_AUXADC
 
@@ -525,18 +534,22 @@ int  fgauge_get_profile_id(void)
 	int id_volt = 0;
 	int i = 0;
 	int id = 0;
-	int ret = 0;
+	//int ret = 0;
 	int err_range = 1;
 
 #ifdef FIH_BATTERY_TEST
 	g_fg_battery_id = 0;
 	return 0;
 #endif
+/*
 	ret = IMM_GetOneChannelValue_Cali(BATTERY_ID_CHANNEL_NUM, &id_volt);
 	if (ret != 0)
 		bm_info("[fgauge_get_profile_id]id_volt read fail\n");
 	else
 		bm_info("[fgauge_get_profile_id]id_volt = %d\n", id_volt);
+*/
+	id_volt = g_bat_id_volt;
+	meter_to_common_battery_id_volt(id_volt);
 
 	if ((sizeof(g_battery_id_voltage) / sizeof(signed int)) != TOTAL_BATTERY_NUMBER) {
 		bm_info("[fgauge_get_profile_id]error! voltage range incorrect!\n");
@@ -544,14 +557,14 @@ int  fgauge_get_profile_id(void)
 	}
 
 	if(fih_hwid < 0x130)
-		err_range = 3;
+		err_range = 2;
 	else
 		err_range = 1;
 
-	for (i = 0; i < TOTAL_BATTERY_NUMBER; i++) {
+	for (i = 0; i < TOTAL_BATTERY_NUMBER-1; i++) {
 		if (id_volt < g_battery_id_voltage[i] + BAT_ID_POS_NEG_VOLTAGE_ERR_RANGE * err_range &&
 			id_volt > g_battery_id_voltage[i] - BAT_ID_POS_NEG_VOLTAGE_ERR_RANGE * err_range) {
-			g_fg_battery_id = 0;  //battery parameter are the same
+			g_fg_battery_id = i;  //battery parameter are the same
 			id = i;
 			break;
 		} else {

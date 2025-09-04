@@ -416,6 +416,7 @@ extern int battery_meter_get_low_battery_interrupt_status(void);
 extern signed int battery_meter_meta_tool_cali_car_tune(int);
 extern void mt_battery_set_init_vol(int);
 extern void meter_to_common_battery_id(int bat_id);
+extern void meter_to_common_battery_id_volt(int bat_id_volt);
 
 
 #if defined(CONFIG_MTK_HAFG_20)

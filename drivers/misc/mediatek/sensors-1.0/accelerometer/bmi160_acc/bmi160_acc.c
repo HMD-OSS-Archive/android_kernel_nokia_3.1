@@ -580,6 +580,9 @@ static int bmi160_acc_check_chip_id(struct i2c_client *client)
 		GSE_LOG("check chip id %x successfully.\n", databuf[0]);
 		break;
 	default:
+#ifdef _00F_BUILD_
+		err = -1;
+#endif
 		GSE_LOG("check chip id %d failed.\n", databuf[0]);
 		break;
 	}

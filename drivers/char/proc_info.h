@@ -3,6 +3,7 @@
  */
 
 #define fver_BLOCK 		"/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/systeminfo"
+#define DEVICEINFO_LOCATION     "/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/deviceinfo"
 
 #define STATUSROOT_LOCATION 	"/BBSYS/status.cfg"
 //#define FIH_HWID_INFO 	"/system/etc/Fih_Hwid_Info"

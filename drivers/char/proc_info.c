@@ -13,6 +13,9 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/kthread.h>
+#include <linux/unistd.h>
+#include <linux/stat.h>
+#include <linux/fs.h>
 #include <linux/io.h>
 #include <asm/setup.h>
 #include "../misc/mediatek/include/mt-plat/mt_boot_reason.h"
@@ -49,8 +52,8 @@ static char *fver_preload;
 static int fver_len = 65536;
 static int fver_open_times = 0;
 static char sim_state='\0';
-static char str_imei[20];
-static char str_imei2[20];
+static char str_imei[32];
+static char str_imei2[32];
 static char str_pid[33];
 static char str_uicolor[20];
 
@@ -86,6 +89,9 @@ static char fih_proc_test_result[FIH_PROC_SIZE] = {0};
 
 #define FIH_MEM_MEM_ADDR 0x6400000
 #define FIH_MEM_MEM_SIZE 0x1400000
+
+#define IMEI_SIZE        16
+#define IMEI_OFFSET (4096+4096+16) //E2P+CDA+BSET
 
 #define FQC_DEFAULT_PATH "system/etc/fqc_ds_ES2.xml"
 
@@ -787,36 +793,80 @@ static int draminfo_test_result_open(struct inode *inode, struct file *file)
 	return single_open(file, fih_proc_test_result_show, &inode->i_private);
 };
 
+static void fih_imei_setup(int flag, char *info)
+{
+	struct file *pid_filp = NULL;
+	mm_segment_t oldfs;
+
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	pid_filp = filp_open(DEVICEINFO_LOCATION, O_RDWR, S_IRWXU);
+
+	if (IS_ERR(pid_filp)) {
+		printk("[%s] Fail to open %s\n", __func__, DEVICEINFO_LOCATION);
+		set_fs(oldfs);
+		return;
+	}
+
+	if(flag == 1) {
+		memset(str_imei, 0, sizeof(str_imei));
+		snprintf(str_imei, sizeof(str_imei), "%s", info);
+		pid_filp->f_op->llseek(pid_filp, IMEI_OFFSET, SEEK_SET);
+		pid_filp->f_op->write(pid_filp, (char *)str_imei, IMEI_SIZE, &pid_filp->f_pos);
+	} else if(flag == 2) {
+		memset(str_imei2, 0, sizeof(str_imei2));
+		snprintf(str_imei2, sizeof(str_imei2), "%s", info);
+		pid_filp->f_op->llseek(pid_filp, IMEI_OFFSET+IMEI_SIZE, SEEK_SET);
+		pid_filp->f_op->write(pid_filp, (char *)str_imei2, IMEI_SIZE, &pid_filp->f_pos);
+	} else {
+		printk("[%s] Invalid IMEI\n", __func__);
+	}
+
+	vfs_fsync(pid_filp, 0);
+	filp_close(pid_filp, NULL);
+	set_fs(oldfs);
+	return;
+
+}
+
 static int imei_write(struct file *flip, const char __user *buf, size_t count, loff_t *f_pos)
 {
-	char temp[25] = {'\0'};
+	char p_imei[32] = {0};
 
 	printk("[dw]imei_write enter\n");
 
-	if(copy_from_user(temp, buf, count))
+	if(count <=2)
+	{
+		pr_info("input node is NULL \n");
+		return -EFAULT;
+	}
+	if(copy_from_user(p_imei, buf, count))
 		return -EFAULT;
 
-	printk("[dw]imei_write = %s*\n", temp);
+	printk("[dw]imei_write = %s*\n", p_imei);
 
-	memset(str_imei, 0, sizeof(str_imei));
-	strcpy(str_imei, temp);
+	fih_imei_setup(1,p_imei);
 
 	return count;
 }
 
 static int imei2_write(struct file *flip, const char __user *buf, size_t count, loff_t *f_pos)
 {
-	char temp[25] = {'\0'};
+	char p_imei[32] = {0};
 
 	printk("[dw]imei_write enter\n");
 
-	if(copy_from_user(temp, buf, count))
+	if(count <=2)
+	{
+		pr_info("input node is NULL \n");
+		return -EFAULT;
+	}
+	if(copy_from_user(p_imei, buf, count))
 		return -EFAULT;
 
-	printk("[dw]imei_write = %s*\n", temp);
+	printk("[dw]imei_write = %s*\n", p_imei);
 
-	memset(str_imei2, 0, sizeof(str_imei2));
-	strcpy(str_imei2, temp);
+	fih_imei_setup(2,p_imei);
 
 	return count;
 }
@@ -1156,7 +1206,7 @@ static int fqc_xml_path_show(struct seq_file *s, void *unused)
 
 static int skuid_show(struct seq_file *s, void *unused)
 {
-	char fih_skuid[30];
+	char fih_skuid[30] = {'\0'};
 	char *p, *q;
 
 	p = strstr(saved_command_line, "fih_skuid=");
@@ -1974,6 +2024,14 @@ static int __init proc_info_module_init(void)
 	entry = proc_create(HWMODEL_PROC, S_IFREG | S_IRUGO, NULL, &hwmodel_fops);
 	if(entry == NULL)
 		printk("[dw]creat proc %s fail\n", HWMODEL_PROC);
+
+	entry = proc_create(IMEI_PROC, 0777, entry_C, &imei_fops);
+	if(entry == NULL)
+		printk("[dw]creat proc %s fail\n", IMEI_PROC);
+
+	entry = proc_create(IMEI2_PROC, 0777, entry_C, &imei2_fops);
+	if(entry == NULL)
+		printk("[dw]creat proc %s fail\n", IMEI2_PROC);
 
 	fih_dram_setup_MEM();
 	entry = proc_create(FIH_PROC_TESTRESULT_PATH, 0777, entry_C, &draminfo_test_result_ops);

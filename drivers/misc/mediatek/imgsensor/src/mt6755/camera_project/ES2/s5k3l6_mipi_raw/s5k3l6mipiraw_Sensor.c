@@ -634,6 +634,36 @@ static void sensor_init(void)
 	write_cmos_sensor(0x0100, 0x0000);
 
 }	/*	sensor_init  */
+/*************************************************************************
+* FUNCTION
+*	check_stremoff
+*
+* DESCRIPTION
+*	waiting function until sensor streaming finish.
+*
+* PARAMETERS
+*	None
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+static void check_stremoff(void)
+{
+    unsigned int i=0,framecnt=0;
+    for(i=0;i<100;i++)
+    {
+        framecnt = read_cmos_sensor_byte(0x0005);
+        if (framecnt == 0xFF)  // stream off
+           return;
+        mdelay(1);
+        write_cmos_sensor(0x0100, 0x0000);
+    }
+	LOG_INF(" Stream Off Fail!\n");
+    return;
+}
 
 
 static void preview_setting(void)
@@ -641,6 +671,7 @@ static void preview_setting(void)
 	LOG_INF("E\n");
 	/* $MV1[MCLK:24,Width:2104,Height:1560,Format:MIPI_Raw10,mipi_lane:4,mipi_datarate:568,pvi_pclk_inverse:0] */
 	write_cmos_sensor(0x0100, 0x0000);
+	check_stremoff();
 	write_cmos_sensor(0x0344, 0x0008);
 	write_cmos_sensor(0x0346, 0x0008);
 	write_cmos_sensor(0x0348, 0x1077);
@@ -699,6 +730,7 @@ static void preview_setting(void)
 	write_cmos_sensor(0x393E, 0x4000);
 	write_cmos_sensor(0x3C1E, 0x0100);
 	write_cmos_sensor(0x0100, 0x0100);
+	mdelay(10);
 	write_cmos_sensor(0x3C1E, 0x0000);
 
 
@@ -710,6 +742,7 @@ static void capture_setting(kal_uint16 currefps)
 	if (currefps == 300) {
   /* $MV1[MCLK:24,Width:4208,Height:3120,Format:MIPI_Raw10,mipi_lane:4,mipi_datarate:1200,pvi_pclk_inverse:0] */
 	write_cmos_sensor(0x0100, 0x0000);
+	check_stremoff();
 	write_cmos_sensor(0x0344, 0x0008);
 	write_cmos_sensor(0x0346, 0x0008);
 	write_cmos_sensor(0x0348, 0x1077);
@@ -768,12 +801,14 @@ static void capture_setting(kal_uint16 currefps)
 	write_cmos_sensor(0x393E, 0x4000);
 	write_cmos_sensor(0x3C1E, 0x0100);
 	write_cmos_sensor(0x0100, 0x0100);
+	mdelay(10);
 	write_cmos_sensor(0x3C1E, 0x0000);
 
 	} else if (currefps == 240) {
 	LOG_INF("else if (currefps == 240)\n");
 	/* $MV1[MCLK:24,Width:4208,Height:3120,Format:MIPI_Raw10,mipi_lane:4,mipi_datarate:1200,pvi_pclk_inverse:0] */
 	write_cmos_sensor(0x0100, 0x0000);
+	check_stremoff();
 	write_cmos_sensor(0x0344, 0x0008);
 	write_cmos_sensor(0x0346, 0x0008);
 	write_cmos_sensor(0x0348, 0x1077);
@@ -832,6 +867,7 @@ static void capture_setting(kal_uint16 currefps)
 	write_cmos_sensor(0x393E, 0x4000);
 	write_cmos_sensor(0x3C1E, 0x0100);
 	write_cmos_sensor(0x0100, 0x0100);
+	mdelay(10);
 	write_cmos_sensor(0x3C1E, 0x0000);
 
 
@@ -840,6 +876,7 @@ static void capture_setting(kal_uint16 currefps)
 /* $MV1[MCLK:24,Width:4208,Height:3120,Format:MIPI_Raw10,mipi_lane:4,mipi_datarate:1200,pvi_pclk_inverse:0] */
 	LOG_INF("else if (currefps == 150)\n");
 	write_cmos_sensor(0x0100, 0x0000);
+	check_stremoff();
 	write_cmos_sensor(0x0344, 0x0008);
 	write_cmos_sensor(0x0346, 0x0008);
 	write_cmos_sensor(0x0348, 0x1077);
@@ -898,12 +935,14 @@ static void capture_setting(kal_uint16 currefps)
 	write_cmos_sensor(0x393E, 0x4000);
 	write_cmos_sensor(0x3C1E, 0x0100);
 	write_cmos_sensor(0x0100, 0x0100);
+	mdelay(10);
 	write_cmos_sensor(0x3C1E, 0x0000);
 	} else { //default fps =15
-/* PIP 15fps settings,?¡§¡è?¨¤¡§¡§Full 30fps */
+/* PIP 15fps settings  */
 /* $MV1[MCLK:24,Width:4208,Height:3120,Format:MIPI_Raw10,mipi_lane:4,mipi_datarate:1200,pvi_pclk_inverse:0] */
 	LOG_INF("else  150fps\n");
 	write_cmos_sensor(0x0100, 0x0000);
+	check_stremoff();
 	write_cmos_sensor(0x0344, 0x0008);
 	write_cmos_sensor(0x0346, 0x0008);
 	write_cmos_sensor(0x0348, 0x1077);
@@ -962,6 +1001,7 @@ static void capture_setting(kal_uint16 currefps)
 	write_cmos_sensor(0x393E, 0x4000);
 	write_cmos_sensor(0x3C1E, 0x0100);
 	write_cmos_sensor(0x0100, 0x0100);
+	mdelay(10);
 	write_cmos_sensor(0x3C1E, 0x0000);
 	}
 }
@@ -977,6 +1017,7 @@ static void hs_video_setting(void)
 	LOG_INF("E\n");
   /* $MV1[MCLK:24,Width:640,Height:480,Format:MIPI_Raw10,mipi_lane:4,mipi_datarate:186,pvi_pclk_inverse:0] */
 	write_cmos_sensor(0x0100, 0x0000);
+	check_stremoff();
 	write_cmos_sensor(0x0344, 0x0340);
 	write_cmos_sensor(0x0346, 0x0260);
 	write_cmos_sensor(0x0348, 0x0D3F);
@@ -1035,6 +1076,7 @@ static void hs_video_setting(void)
 	write_cmos_sensor(0x393E, 0x4000);
 	write_cmos_sensor(0x3C1E, 0x0100);
 	write_cmos_sensor(0x0100, 0x0100);
+	mdelay(10);
 	write_cmos_sensor(0x3C1E, 0x0000);
 
 
@@ -1045,6 +1087,7 @@ static void slim_video_setting(void)
 	LOG_INF("E\n");
   /* $MV1[MCLK:24,Width:1920,Height:1080,Format:MIPI_Raw10,mipi_lane:4,mipi_datarate:520,pvi_pclk_inverse:0] */
 	write_cmos_sensor(0x0100, 0x0000);
+	check_stremoff();
 	write_cmos_sensor(0x0344, 0x00C0);
 	write_cmos_sensor(0x0346, 0x01E8);
 	write_cmos_sensor(0x0348, 0x0FBF);
@@ -1103,6 +1146,7 @@ static void slim_video_setting(void)
 	write_cmos_sensor(0x393E, 0x4000);
 	write_cmos_sensor(0x3C1E, 0x0100);
 	write_cmos_sensor(0x0100, 0x0100);
+	mdelay(10);
 	write_cmos_sensor(0x3C1E, 0x0000);
 
 }

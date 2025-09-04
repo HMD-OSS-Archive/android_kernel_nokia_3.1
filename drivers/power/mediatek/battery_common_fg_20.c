@@ -274,7 +274,7 @@ static struct tcpc_device *tcpc_dev;
 /* FOR ADB CMD */
 /* ////////////////////////////////////////////////////////////////////////////// */
 /* Dual battery */
-int g_status_smb = POWER_SUPPLY_STATUS_NOT_CHARGING;
+int g_status_smb = POWER_SUPPLY_STATUS_DISCHARGING;
 int g_capacity_smb = 50;
 int g_present_smb = 0;
 /* ADB charging CMD */
@@ -329,6 +329,7 @@ struct battery_data {
 	int adjust_power;
 	int charge_full_design;
 	int bat_id;
+	int bat_id_volt;
 };
 
 static enum power_supply_property wireless_props[] = {
@@ -376,7 +377,8 @@ static enum power_supply_property battery_props[] = {
 	/* ADB CMD Discharging */
 	POWER_SUPPLY_PROP_adjust_power,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
-	POWER_SUPPLY_PROP_bat_id
+	POWER_SUPPLY_PROP_bat_id,
+	POWER_SUPPLY_PROP_bat_id_volt,
 };
 
 struct timespec batteryThreadRunTime;
@@ -721,7 +723,8 @@ static int battery_get_property(struct power_supply *psy,
 		val->intval = BATTERY_VOLT_04_400000_V;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
-		val->intval = battery_meter_get_QMAX25() * 1000;
+		//val->intval = battery_meter_get_QMAX25() * 1000;
+		val->intval = data->BAT_CAPACITY * 2900 * 1000 / 100;
 		/* QMAX from battery, ma to ua */
 		break;
 
@@ -743,6 +746,9 @@ static int battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_bat_id:
 		val->intval = data->bat_id;
+		break;
+	case POWER_SUPPLY_PROP_bat_id_volt:
+		val->intval = data->bat_id_volt;
 		break;
 	default:
 		ret = -EINVAL;
@@ -807,13 +813,13 @@ static struct battery_data battery_main = {
 	.BAT_batt_vol = 4200,
 	.BAT_batt_temp = 22,
 	/* Dual battery */
-	.status_smb = POWER_SUPPLY_STATUS_NOT_CHARGING,
+	.status_smb = POWER_SUPPLY_STATUS_DISCHARGING,
 	.capacity_smb = 50,
 	.present_smb = 0,
 	/* ADB CMD discharging */
 	.adjust_power = -1,
 #else
-	.BAT_STATUS = POWER_SUPPLY_STATUS_NOT_CHARGING,
+	.BAT_STATUS = POWER_SUPPLY_STATUS_DISCHARGING,
 	.BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD,
 	.BAT_PRESENT = 1,
 	.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION,
@@ -825,7 +831,7 @@ static struct battery_data battery_main = {
 	.BAT_batt_vol = 0,
 	.BAT_batt_temp = 0,
 	/* Dual battery */
-	.status_smb = POWER_SUPPLY_STATUS_NOT_CHARGING,
+	.status_smb = POWER_SUPPLY_STATUS_DISCHARGING,
 	.capacity_smb = 50,
 	.present_smb = 0,
 	.charge_full_design = E2C2__BATTERY_CAPACITY_DESIGN * 1000,
@@ -833,12 +839,18 @@ static struct battery_data battery_main = {
 	.adjust_power = -1,
 #endif
 	.bat_id = 0,
+	.bat_id_volt = 0,
 };
 
 void meter_to_common_battery_id(int bat_id)
 {
 	battery_log(BAT_LOG_CRTI, "[%s]: bat_id(%d)\n", __func__, bat_id);
 	battery_main.bat_id = bat_id;
+}
+void meter_to_common_battery_id_volt(int bat_id_volt)
+{
+	battery_log(BAT_LOG_CRTI, "[%s]: bat_id_volt(%d)\n", __func__, bat_id_volt);
+	battery_main.bat_id_volt = bat_id_volt;
 }
 void mt_battery_set_init_vol(int init_voltage)
 {
@@ -1935,7 +1947,7 @@ static void battery_update(struct battery_data *bat_data)
 		}
 	} else {
 		/* Only Battery */
-		bat_data->BAT_STATUS = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		bat_data->BAT_STATUS = POWER_SUPPLY_STATUS_DISCHARGING;
 	}
 
 	mt_battery_update_EM(bat_data);

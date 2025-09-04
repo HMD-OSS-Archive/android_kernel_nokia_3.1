@@ -210,6 +210,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(batt_vol),
 	/*Jason: BAT_ID*/
 	POWER_SUPPLY_ATTR(bat_id),
+	POWER_SUPPLY_ATTR(bat_id_volt),
 	POWER_SUPPLY_ATTR(batt_temp),
 	/* 20100405 Add for EM */
 	POWER_SUPPLY_ATTR(TemperatureR),

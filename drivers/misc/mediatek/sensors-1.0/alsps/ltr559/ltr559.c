@@ -397,6 +397,18 @@ static void ltr559_dump_reg(void)
 }
 #endif
 
+static void ltr559_dump_all_reg(void)
+{
+	int i;
+	int reg[]={0x80,0x81,0x82,0x83,0x84,0x85,0x86,0x87,0x88,0x89,0x8a,0x8b,0x8c,
+		0x8d,0x8e,0x8f,0x90,0x91,0x92,0x93,0x94,0x95,0x97,0x98,0x99,0x9a,0x9e};
+	for(i=0;i<27;i++)
+	{
+		APS_ERR("reg:0x%04X value: 0x%04X\n",
+				reg[i],ltr559_i2c_read_reg(reg[i]));
+	}
+}
+
 static int ltr559_ps_enable(struct i2c_client *client, int enable)
 {
 	u8 regdata;
@@ -1250,6 +1262,7 @@ static ssize_t ltr559_store_alscali(struct device_driver *ddri, const char *buf,
 		}
 
 		cur_lux = ltr559_als_read_for_cali(ltr559_obj->client, &ltr559_obj->als);
+		ltr559_dump_all_reg();
 		APS_ERR("[FIH] cur_lux(%d), max_loop_count(%d)\n", cur_lux, max_loop_count);
 		if (cur_lux < limit_min || cur_lux > limit_max)
 			continue;
