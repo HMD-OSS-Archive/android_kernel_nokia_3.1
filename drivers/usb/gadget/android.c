@@ -140,15 +140,6 @@ struct android_dev {
 	char ffs_aliases[256];
 };
 
-struct usb_info{
-	struct delayed_work       usb_work;
-	struct workqueue_struct  *usb_workqueue;
-};
-
-extern int selinux_enforcing;
-extern void selnl_notify_setenforce(int val);
-extern void selinux_status_update_setenforce(int enforcing);
-
 static struct class *android_class;
 static struct android_dev *_android_dev;
 static int android_bind_config(struct usb_configuration *c);
@@ -2416,35 +2407,6 @@ static int android_create_device(struct android_dev *dev)
 	return 0;
 }
 
-static void fih_switch_all_port(void)
-{
-	/*disable adb security*/
-	switch_set_state(&sw_adb_secure_dis, 1);
-
-	if (get_usb_product_id() != 0xC026) {
-		sw_pid.state = -1;
-		switch_set_state(&sw_pid, 0xC026);
-		printk("%s : change PID to 0xC026\n", __func__);
-	} else {
-		printk("%s : already change PID to 0xC026\n", __func__);
-	}
-}
-
-static void usb_all_port_setting(struct work_struct *work)
-{
-	struct usb_info *info;
-	struct delayed_work *usb_work = container_of(work, struct delayed_work, work);
-	info = container_of(usb_work, struct usb_info, usb_work);
-
-	if(selinux_enforcing != 0) {
-		printk("%s: disable selinux \n", __func__);
-		selinux_enforcing = 0;
-		selnl_notify_setenforce(selinux_enforcing);
-		selinux_status_update_setenforce(selinux_enforcing);
-	}
-	printk("%s: enable all ports \n", __func__);
-	fih_switch_all_port();
-}
 
 #ifdef CONFIG_USBIF_COMPLIANCE
 
@@ -2606,58 +2568,7 @@ static int __init init(void)
 {
 	struct android_dev *dev;
 	int err;
-	struct usb_info *info = NULL;
 
-<<<<<<< HEAD
-	if(!fih_efuse_enable)
-	{
-		/*Begin:add for ScsiCmdAgent adb root*/
-		sw_adb_secure_dis.name = "sw_adb_secure_dis";
-		err = switch_dev_register(&sw_adb_secure_dis);
-		if (err < 0)
-		{
-			printk("sunyongshan register sw_adb_secure_dis failed!\n");
-		}
-		printk("sunyongshan register sw_adb_secure_dis success!\n");
-		sw_adb_secure_dis.state = -1;
-
-		sw_pid.name = "sw_pid";
-		err = switch_dev_register(&sw_pid);
-		if (err < 0)
-		{
-			printk("sunyongshan register sw_pid failed!\n");
-		}
-		printk("sunyongshan register sw_pid success!\n");
-		sw_pid.state = -1;
-
-		sw_root_detection.name = "sw_root_detection";
-		err = switch_dev_register(&sw_root_detection);
-		if (err < 0)
-		{
-			printk("sunyongshan register sw_root_detection failed!\n");
-		}
-		printk("sunyongshan register sw_root_detection success!\n");
-		sw_root_detection.state = -1;
-		/*End:add for ScsiCmdAgent adb root*/
-		if (strstr(saved_command_line,"androidboot.allport=true")) {
-			printk("%s: enable allport and disable selinux\n", __func__);
-
-			info = kzalloc(sizeof (struct usb_info), GFP_KERNEL);
-
-			info->usb_workqueue = alloc_workqueue("usb-queue", WQ_UNBOUND|WQ_HIGHPRI|WQ_CPU_INTENSIVE, 1);
-			if (!info) {
-				printk("%s: alloc workqueue fail \n", __func__);
-			} else {
-				INIT_DELAYED_WORK(&info->usb_work, usb_all_port_setting);
-				printk("%s: Init workqueue  \n", __func__);
-				queue_delayed_work(info->usb_workqueue, &info->usb_work, msecs_to_jiffies(11000));
-			}
-		} else {
-				printk("%s: allport disable \n", __func__);
-		}
-	}
-=======
->>>>>>> b8c7392... Revert "Handle SCSI command"
 	android_class = class_create(THIS_MODULE, "android_usb");
 	if (IS_ERR(android_class))
 		return PTR_ERR(android_class);
