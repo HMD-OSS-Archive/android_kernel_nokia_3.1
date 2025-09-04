@@ -40,6 +40,7 @@ typedef struct {
 	unsigned int security;
 	unsigned int coherent;
 	void *pVA;
+	void *va;
 	unsigned int MVA;
 	ion_mm_buf_debug_info_t dbg_info;
 	ion_mm_buf_destroy_callback_t *destroy_fn;
@@ -203,13 +204,34 @@ static int ion_mm_heap_allocate(struct ion_heap *heap,
 	struct scatterlist *sg;
 	int ret;
 	struct list_head pages;
-	struct page_info *info, *tmp_info;
+	struct page_info *info =  NULL;
+	struct page_info *tmp_info = NULL;
 	int i = 0;
 	unsigned long size_remaining = PAGE_ALIGN(size);
 	unsigned int max_order = orders[0];
 	ion_mm_buffer_info *pBufferInfo = NULL;
 	unsigned long long start, end;
+	unsigned long user_va = 0;
 
+#ifdef CONFIG_MTK_M4U
+#ifdef M4U_PORT_INFO
+	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA) {
+		if (!size % PAGE_SIZE) {
+			IONMSG("%s:size not align\n", __func__);
+			return -1;
+		}
+
+		table = m4u_create_sgtable(align, (unsigned int)size);
+		if (!table) {
+			IONMSG("%s:create table fail\n", __func__);
+			return -ENOMEM;
+		}
+		user_va = align;
+
+		goto mva_exit;
+	}
+#endif
+#endif
 	if (align > PAGE_SIZE) {
 		IONMSG("%s align %lu is larger than PAGE_SIZE.\n", __func__, align);
 		return -EINVAL;
@@ -272,7 +294,11 @@ static int ion_mm_heap_allocate(struct ion_heap *heap,
 		list_del(&info->list);
 		kfree(info);
 	}
-
+#ifdef CONFIG_MTK_M4U
+#ifdef M4U_PORT_INFO
+mva_exit:
+#endif
+#endif
 	/* create MM buffer info for it */
 	pBufferInfo = kzalloc(sizeof(ion_mm_buffer_info), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(pBufferInfo)) {
@@ -282,6 +308,7 @@ static int ion_mm_heap_allocate(struct ion_heap *heap,
 
 	buffer->sg_table = table;
 	pBufferInfo->pVA = 0;
+	pBufferInfo->va = (void *)user_va;
 	pBufferInfo->MVA = 0;
 	pBufferInfo->eModuleID = -1;
 	pBufferInfo->dbg_info.value1 = 0;
@@ -306,9 +333,12 @@ err1:
 	kfree(table);
 	IONMSG("error: alloc for sg_table fail\n");
 err:
-	list_for_each_entry_safe(info, tmp_info, &pages, list) {
-		free_buffer_page(sys_heap, buffer, info->page, info->order);
-		kfree(info);
+	if (info) {
+		list_for_each_entry_safe(info, tmp_info, &pages, list) {
+			free_buffer_page(sys_heap, buffer, info->page,
+					 info->order);
+			kfree(info);
+		}
 	}
 	IONMSG("error: mm_alloc fail: size=%lu, flag=%lu.\n", size, flags);
 	caller_pid = 0;
@@ -356,7 +386,14 @@ void ion_mm_heap_free(struct ion_buffer *buffer)
 	int i;
 
 	mm_heap_total_memory -= buffer->size;
-
+#ifdef CONFIG_MTK_M4U
+#ifdef M4U_PORT_INFO
+	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA) {
+		ion_mm_heap_free_bufferInfo(buffer);
+		return;
+	}
+#endif
+#endif
 	if (mm_heap_total_memory > 2147483647)
 		IONMSG("error: mm_free fail: size=%zu, total=%zu.\n",
 		       buffer->size, mm_heap_total_memory);
@@ -405,6 +442,11 @@ static int ion_mm_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask, int nr_to_s
 static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		ion_phys_addr_t *addr, size_t *len) {
 	ion_mm_buffer_info *pBufferInfo = (ion_mm_buffer_info *) buffer->priv_virt;
+#ifdef CONFIG_MTK_M4U
+#ifdef M4U_PORT_INFO
+	struct port_info m4u_info;
+#endif
+#endif
 
 	if (!pBufferInfo) {
 		IONMSG("[ion_mm_heap_phys]: Error. Invalid buffer.\n");
@@ -415,18 +457,40 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		return -EFAULT; /* Buffer not configured. */
 	}
 	/* Allocate MVA */
+#ifdef CONFIG_MTK_M4U
+#ifdef M4U_PORT_INFO
+	memset((void *)&m4u_info, 0, sizeof(m4u_info));
+	m4u_info.BufSize = buffer->size;
+	m4u_info.eModuleID = pBufferInfo->eModuleID;
+	m4u_info.mva = pBufferInfo->MVA;
+	m4u_info.security = pBufferInfo->security;
+#endif
+#endif
 
 	if (pBufferInfo->MVA == 0) {
-		int ret = m4u_alloc_mva_sg(pBufferInfo->eModuleID, buffer->sg_table,
+		int ret = 0;
+
+		if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA) {
+#ifdef CONFIG_MTK_M4U
+#ifdef M4U_PORT_INFO
+			m4u_info.va = (unsigned long)pBufferInfo->va;
+			m4u_info.flags |= M4U_FLAGS_SG_READY;
+			ret = m4u_alloc_mva_by_va(&m4u_info, buffer->sg_table);
+			pBufferInfo->MVA = m4u_info.mva;
+#endif
+#endif
+		} else {
+			ret = m4u_alloc_mva_sg(pBufferInfo->eModuleID, buffer->sg_table,
 				buffer->size, pBufferInfo->security, pBufferInfo->coherent,
 				&pBufferInfo->MVA);
-
+		}
 		if (ret < 0) {
 			pBufferInfo->MVA = 0;
 			IONMSG("[ion_mm_heap_phys]: Error. Allocate MVA failed.\n");
 			return -EFAULT;
 		}
 	}
+
 	*(unsigned int *) addr = pBufferInfo->MVA; /* MVA address */
 	*len = buffer->size;
 
@@ -846,6 +910,7 @@ struct ion_heap *ion_mm_heap_create(struct ion_platform_heap *unused)
 
 		if (unused->id == ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA)
 			gfp_flags |= (__GFP_HIGHMEM | __GFP_MOVABLE);
+
 
 		pool = ion_page_pool_create(gfp_flags, orders[i]);
 		if (!pool)

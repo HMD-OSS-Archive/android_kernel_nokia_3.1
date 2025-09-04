@@ -157,7 +157,6 @@ struct last_reboot_reason {
 	uint8_t thermal_status;
 	uint8_t thermal_ATM_status;
 	uint64_t thermal_ktime;
-	int8_t thermal_wq_status;
 
 	uint8_t isr_el1;
 
@@ -176,6 +175,8 @@ struct last_reboot_reason {
 	uint32_t scp_pc;
 	uint32_t scp_lr;
 	uint32_t hang_detect_timeout_count;
+	unsigned long last_async_func;
+	unsigned long last_sync_func;
 
 	void *kparams;
 };
@@ -1480,13 +1481,6 @@ void aee_rr_rec_thermal_ktime(u64 val)
 	LAST_RR_SET(thermal_ktime, val);
 }
 
-void aee_rr_rec_thermal_wq_status(s8 val)
-{
-	if (!ram_console_init_done || !ram_console_buffer)
-		return;
-	LAST_RR_SET(thermal_wq_status, val);
-}
-
 void aee_rr_rec_isr_el1(u8 val)
 {
 	if (!ram_console_init_done || !ram_console_buffer)
@@ -1791,11 +1785,6 @@ u64 aee_rr_curr_thermal_ktime(void)
 	return LAST_RR_VAL(thermal_ktime);
 }
 
-s8 aee_rr_curr_thermal_wq_status(void)
-{
-	return LAST_RR_VAL(thermal_wq_status);
-}
-
 u8 aee_rr_curr_isr_el1(void)
 {
 	return LAST_RR_VAL(isr_el1);
@@ -1897,6 +1886,24 @@ void aee_rr_rec_scp(void)
 
 	aee_rr_rec_scp_pc(pc);
 	aee_rr_rec_scp_lr(lr);
+}
+
+void aee_rr_rec_last_async_func(unsigned long val)
+{
+	if (!ram_console_init_done || !ram_console_buffer)
+		return;
+	if (LAST_RR_VAL(last_async_func) == ~(unsigned long)(0))
+		return;
+	LAST_RR_SET(last_async_func, val);
+}
+
+void aee_rr_rec_last_sync_func(unsigned long val)
+{
+	if (!ram_console_init_done || !ram_console_buffer)
+		return;
+	if (LAST_RR_VAL(last_sync_func) == ~(unsigned long)(0))
+		return;
+	LAST_RR_SET(last_sync_func, val);
 }
 
 void aee_rr_rec_hang_detect_timeout_count(unsigned int val)
@@ -2561,11 +2568,6 @@ void aee_rr_show_thermal_ktime(struct seq_file *m)
 	seq_printf(m, "thermal_ktime: %lld\n", LAST_RRR_VAL(thermal_ktime));
 }
 
-void aee_rr_show_thermal_wq_status(struct seq_file *m)
-{
-	seq_printf(m, "thermal_wq_status: %d\n", LAST_RRR_VAL(thermal_wq_status));
-}
-
 void aee_rr_show_scp_pc(struct seq_file *m)
 {
 	seq_printf(m, "scp_pc: 0x%x\n", LAST_RRR_VAL(scp_pc));
@@ -2574,6 +2576,18 @@ void aee_rr_show_scp_pc(struct seq_file *m)
 void aee_rr_show_scp_lr(struct seq_file *m)
 {
 	seq_printf(m, "scp_lr: 0x%x\n", LAST_RRR_VAL(scp_lr));
+}
+
+void aee_rr_show_last_sync_func(struct seq_file *m)
+{
+	seq_printf(m, "last sync function: 0x%lx\n",
+			LAST_RRR_VAL(last_sync_func));
+}
+
+void aee_rr_show_last_async_func(struct seq_file *m)
+{
+	seq_printf(m, "last async function: 0x%lx\n",
+			LAST_RRR_VAL(last_async_func));
 }
 
 void aee_rr_show_hang_detect_timeout_count(struct seq_file *m)
@@ -2754,7 +2768,6 @@ last_rr_show_t aee_rr_show[] = {
 	aee_rr_show_thermal_status,
 	aee_rr_show_thermal_ATM_status,
 	aee_rr_show_thermal_ktime,
-	aee_rr_show_thermal_wq_status,
 	aee_rr_show_isr_el1,
 	aee_rr_show_idvfs_ctrl_reg,
 	aee_rr_show_idvfs_enable_cnt,
@@ -2770,6 +2783,8 @@ last_rr_show_t aee_rr_show[] = {
 	aee_rr_show_scp_pc,
 	aee_rr_show_scp_lr,
 	aee_rr_show_hang_detect_timeout_count,
+	aee_rr_show_last_sync_func,
+	aee_rr_show_last_async_func,
 	aee_rr_show_hotplug_status,
 	aee_rr_show_hotplug_caller_callee_status,
 	aee_rr_show_hotplug_up_prepare_ktime,

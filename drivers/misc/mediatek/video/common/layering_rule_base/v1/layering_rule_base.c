@@ -1291,7 +1291,7 @@ int check_disp_info(disp_layer_info *disp_info)
 			disp_info->input_config[disp_idx] == NULL) {
 			DISPERR("[HRT]Has input layer, but input config is empty, disp_idx:%d, layer_num:%d\n",
 				disp_idx, disp_info->layer_num[disp_idx]);
-			return -1;
+			return -EINVAL;
 		}
 
 		if ((disp_info->gles_head[disp_idx] < 0 && disp_info->gles_tail[disp_idx] >= 0) ||
@@ -1299,7 +1299,12 @@ int check_disp_info(disp_layer_info *disp_info)
 			dump_disp_info(disp_info, DISP_DEBUG_LEVEL_ERR);
 			DISPERR("[HRT]gles layer invalid, disp_idx:%d, head:%d, tail:%d\n",
 				disp_idx, disp_info->gles_head[disp_idx], disp_info->gles_tail[disp_idx]);
-			return -1;
+			return -EINVAL;
+		}
+		if (disp_info->disp_mode[disp_idx] > DISP_SESSION_MODE_NUM) {
+			DISPERR("[HRT] disp_mode is %d exceed the max value",
+			disp_info->disp_mode[disp_idx]);
+			return -EINVAL;
 		}
 	}
 

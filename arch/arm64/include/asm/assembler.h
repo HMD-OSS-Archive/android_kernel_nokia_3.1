@@ -118,24 +118,6 @@
 	.endm
 
 /*
- * Value prediction barrier
- */
-	.macro	csdb
-	hint	#20
-	.endm
-
-/*
- * Sanitise a 64-bit bounded index wrt speculation, returning zero if out
- * of bounds.
- */
-	.macro	mask_nospec64, idx, limit, tmp
-	sub	\tmp, \idx, \limit
-	bic	\tmp, \tmp, \idx
-	and	\idx, \idx, \tmp, asr #63
-	csdb
-	.endm
-
-/*
  * NOP sequence
  */
 	.macro	nops, num
@@ -319,6 +301,29 @@ lr	.req	x30		// link register
 	b.lt	9000f
 	msr	pmuserenr_el0, xzr		// Disable PMU access from EL0
 9000:
+	.endm
+
+
+	/*
+	 * @dst: Result of per_cpu(sym, smp_processor_id())
+	 * @sym: The name of the per-cpu variable
+	 * @tmp: scratch register
+	 */
+	.macro adr_this_cpu, dst, sym, tmp
+	adr_l	\dst, \sym
+	mrs	\tmp, tpidr_el1
+	add	\dst, \dst, \tmp
+	.endm
+
+	/*
+	 * @dst: Result of READ_ONCE(per_cpu(sym, smp_processor_id()))
+	 * @sym: The name of the per-cpu variable
+	 * @tmp: scratch register
+	 */
+	.macro ldr_this_cpu dst, sym, tmp
+	adr_l	\dst, \sym
+	mrs	\tmp, tpidr_el1
+	ldr	\dst, [\dst, \tmp]
 	.endm
 
 /*

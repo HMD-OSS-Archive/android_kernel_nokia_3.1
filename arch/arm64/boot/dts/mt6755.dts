@@ -30,7 +30,9 @@
 
 	/* chosen */
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyMT0,921600n1 root=/dev/ram initrd=0x44000000,0x4b434e loglevel=8";
+		bootargs = "console=tty0 console=ttyMT3,921600n1 vmalloc=496M \
+slub_max_order=0 slub_debug=OFZPU androidboot.hardware=mt6755 \
+firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	/* Do not put any bus before mtk-msdc, because it should be mtk-msdc.0 for partition device node usage */
@@ -269,6 +271,15 @@
 			alloc-ranges = <0 0x40000000 0 0x60000000>;
 		};
 
+#ifdef CONFIG_MICROTRUST_TEE_SUPPORT
+		soter-shared-mem {
+			compatible = "microtrust,shared_mem";
+			no-map;
+			size = <0 0x200000>;
+			alloc-ranges = <0 0x40000000 0 0x50000000>;
+		};
+#endif
+
 		spm-reserve-memory {
 			compatible = "mediatek,spm-reserve-memory";
 			no-map;
@@ -280,16 +291,6 @@
 		ram_console-reserved-memory@44400000 {
 			compatible = "mediatek,ram_console";
 			reg = <0 0x44400000 0 0x10000>;
-		};
-
-		preloader-reserved-memory@44800000 {
-			compatible = "mediatek,preloader";
-			reg = <0 0x44800000 0 0x100000>;
-		};
-
-		lk-reserved-memory@46000000 {
-			compatible = "mediatek,lk";
-			reg = <0 0x46000000 0 0x400000>;
 		};
 
 		minirdump-reserved-memory@444f0000 {
@@ -1375,10 +1376,6 @@
 
 		mt_soc_i2s0dl1_pcm@11220000 {
 			compatible = "mediatek,mt_soc_pcm_dl1_i2s0dl1";
-		};
-
-		mt_soc_deep_buffer_dl_pcm@11220000 {
-			compatible = "mediatek,mt_soc_pcm_deep_buffer_dl";
 		};
 
 		mt_soc_dl1_awb_pcm@11220000 {
@@ -3073,6 +3070,9 @@
 	interrupts = <GIC_SPI 252 IRQ_TYPE_EDGE_RISING>,
 		<GIC_SPI 253 IRQ_TYPE_EDGE_RISING>;
 	};
+	utos_tester {
+		compatible = "microtrust,tester-v1";
+	};
 
 	/* Add dummy nodes for cust.dtsi */
 	als: als {
@@ -3159,7 +3159,7 @@
 			compatible = "android,firmware";
 			fstab {
 				compatible = "android,fstab";
-#ifndef CONFIG_MTK_AB_OTA_UPDATER
+#if !defined(CONFIG_SYSTEM_AS_ROOT) && !defined(CONFIG_MTK_AB_OTA_UPDATER)
 				system {
 					compatible = "android,system";
 					dev = "/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/system";

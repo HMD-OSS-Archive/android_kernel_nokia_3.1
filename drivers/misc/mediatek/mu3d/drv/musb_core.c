@@ -1002,6 +1002,9 @@ void musb_start(struct musb *musb)
 		mu3d_hal_u2dev_connect();
 #endif
 	}
+#ifdef CONFIG_DUAL_ROLE_USB_INTF
+	mt_usb_dual_role_to_device();
+#endif
 }
 
 
@@ -1055,6 +1058,10 @@ static void set_ssusb_ip_sleep(struct musb *musb)
 void musb_stop(struct musb *musb)
 {
 	os_printk(K_INFO, "musb_stop\n");
+
+#ifdef CONFIG_DUAL_ROLE_USB_INTF
+	mt_usb_dual_role_to_none();
+#endif
 
 	/* stop IRQs, timers, ... */
 	musb_platform_disable(musb);
@@ -1112,20 +1119,17 @@ static void musb_shutdown(struct platform_device *pdev)
 	unsigned long flags;
 
 	pm_runtime_get_sync(musb->controller);
+	spin_lock_irqsave(&musb->lock, flags);
+	musb_platform_disable(musb);
+	musb_generic_disable();
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 #ifndef CONFIG_USBIF_COMPLIANCE
 	if (!is_otg_enabled(musb) && is_host_enabled(musb))
 		usb_remove_hcd(musb_to_hcd(musb));
 #endif
 
-	if (musb->is_active) {
-		spin_lock_irqsave(&musb->lock, flags);
-		musb_platform_disable(musb);
-		musb_generic_disable();
-		os_writel(U3D_DEVICE_CONTROL, 0);
-		spin_unlock_irqrestore(&musb->lock, flags);
-	}
-
+	os_writel(U3D_DEVICE_CONTROL, 0);
 	musb_platform_exit(musb);
 
 	pm_runtime_put(musb->controller);
@@ -2348,6 +2352,13 @@ static int musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl
 			s = "OTG"; break; }; s; }
 		), ctrl, (is_dma_capable() && musb->dma_controller)
 		? "DMA" : "PIO", musb->nIrq);
+
+	/* only enable on iddig mode */
+#ifndef CONFIG_USB_C_SWITCH
+#ifdef CONFIG_DUAL_ROLE_USB_INTF
+	mt_usb_dual_role_init(musb);
+#endif
+#endif
 
 	return 0;
 

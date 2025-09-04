@@ -45,6 +45,8 @@ enum AAL_ESS_LEVEL {
 	ESS_LEVEL_BY_CUSTOM_LIB = 0xFFFF
 };
 
+#define AAL_CONTROL_CMD(ID, CONTROL) (ID << 16 | CONTROL)
+
 typedef struct {
 	/* DRE */
 	int dre_map_bypass;

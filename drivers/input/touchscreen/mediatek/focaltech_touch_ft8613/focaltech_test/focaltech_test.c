@@ -699,6 +699,43 @@ static ssize_t fts_test_show(struct device *dev, struct device_attribute *attr, 
     return -EPERM;
 }
 
+int32_t fih_fct_selftest_open(const char *buf, size_t count)
+{
+    char fwname[128] = {0};
+    struct fts_ts_data *ts_data = fts_data;
+    struct i2c_client *client;
+    struct input_dev *input_dev;
+
+    FTS_TEST_FUNC_ENTER();
+
+    client = ts_data->client;
+    input_dev = ts_data->input_dev;
+    memset(fwname, 0, sizeof(fwname));
+    sprintf(fwname, "%s", buf);
+    fwname[count - 1] = '\0';
+    FTS_TEST_DBG("fwname:%s.", fwname);
+
+    mutex_lock(&input_dev->mutex);
+    disable_irq(client->irq);
+
+#if defined(FTS_ESDCHECK_EN) && (FTS_ESDCHECK_EN)
+    fts_esdcheck_switch(DISABLE);
+#endif
+
+    fts_test_entry(fwname);
+
+#if defined(FTS_ESDCHECK_EN) && (FTS_ESDCHECK_EN)
+    fts_esdcheck_switch(ENABLE);
+#endif
+
+    enable_irq(client->irq);
+    mutex_unlock(&input_dev->mutex);
+
+    FTS_TEST_FUNC_EXIT();
+    return count;
+
+}
+
 /************************************************************************
 * Name: fts_test_store
 * Brief:  upgrade from app.bin

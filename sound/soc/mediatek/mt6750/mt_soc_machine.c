@@ -1119,25 +1119,32 @@ static ssize_t mt_soc_debug_write(struct file *f, const char __user *buf,
 	char *token4 = NULL;
 	char *token5 = NULL;
 	char *temp = NULL;
+	char *str_begin = NULL;
 
 	unsigned int long regaddr = 0;
 	unsigned int long regvalue = 0;
 	char delim[] = " ,";
 
-	memset((void *)InputString, 0, MAX_DEBUG_WRITE_INPUT);
+	if (!count) {
+		pr_debug("%s(), count is 0, return directly\n", __func__);
+		goto exit;
+	}
 
 	if (count > MAX_DEBUG_WRITE_INPUT)
 		count = MAX_DEBUG_WRITE_INPUT;
+
+	memset_io((void *)InputString, 0, MAX_DEBUG_WRITE_INPUT);
 
 	if (copy_from_user((InputString), buf, count))
 		pr_warn("%s(), copy_from_user fail, mt_soc_debug_write count = %zu, temp = %s\n",
 			__func__, count, InputString);
 
-	temp = kstrndup(InputString, MAX_DEBUG_WRITE_INPUT, GFP_KERNEL);
-	if (!temp) {
+	str_begin = kstrndup(InputString, MAX_DEBUG_WRITE_INPUT - 1, GFP_KERNEL);
+	if (!str_begin) {
 		pr_warn("%s(), kstrndup fail\n", __func__);
 		goto exit;
 	}
+	temp = str_begin;
 
 	pr_debug("copy_from_user mt_soc_debug_write count = %zu temp = %s pointer = %p\n",
 		 count, InputString, InputString);
@@ -1234,7 +1241,7 @@ static ssize_t mt_soc_debug_write(struct file *f, const char __user *buf,
 	}
 	AudDrv_Clk_Off();
 
-	kfree(temp);
+	kfree(str_begin);
 
 exit:
 	return count;
@@ -1342,16 +1349,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	 .cpu_dai_name = MT_SOC_I2S0DL1_NAME,
 	 .platform_name = MT_SOC_I2S0DL1_PCM,
 	 .codec_dai_name = MT_SOC_CODEC_I2S0TXDAI_NAME,
-	 .codec_name = MT_SOC_CODEC_NAME,
-	 .init = mt_soc_audio_init,
-	 .ops = &mt_machine_audio_ops,
-	 },
-	 {
-	 .name = "DEEP_BUFFER_DL_OUTPUT",
-	 .stream_name = MT_SOC_DEEP_BUFFER_DL_STREAM_NAME,
-	 .cpu_dai_name	 = "snd-soc-dummy-dai",
-	 .platform_name  = MT_SOC_DEEP_BUFFER_DL_PCM,
-	 .codec_dai_name = MT_SOC_CODEC_DEEPBUFFER_TX_DAI_NAME,
 	 .codec_name = MT_SOC_CODEC_NAME,
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,

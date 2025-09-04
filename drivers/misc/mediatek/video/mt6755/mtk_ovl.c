@@ -77,7 +77,6 @@ static ovl2mem_path_context *_get_context(void)
 
 	if (!is_context_inited) {
 		memset((void *)&g_context, 0, sizeof(ovl2mem_path_context));
-		mutex_init(&(g_context.lock));
 		is_context_inited = 1;
 	}
 
@@ -294,6 +293,7 @@ int ovl2mem_init(unsigned int session)
 
 	DISPMSG("ovl2mem_init\n");
 	dpmgr_init();
+	mutex_init(&(pgc->lock));
 
 	_ovl2mem_path_lock(__func__);
 
@@ -508,10 +508,6 @@ int ovl2mem_trigger(int blocking, void *callback, unsigned int userdata)
 	return ret;
 }
 
-unsigned int ovl2mem_get_max_layer(void)
-{
-	return MEMORY_SESSION_INPUT_LAYER_COUNT;
-}
 void ovl2mem_wait_done(void)
 {
 	int loop_cnt = 0;

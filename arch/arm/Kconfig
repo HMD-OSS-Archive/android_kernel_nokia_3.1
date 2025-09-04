@@ -832,7 +832,7 @@ config ARCH_MT6735
 	select MFD_SYSCON
 	select MTK_BASE_POWER
 	select KERNEL_MODE_NEON
-	select CRYPTO_AES_ARM32_CE
+	select CRYPTO_AES_ARM_CE
 	select CRYPTO_SHA2_ARM_CE
 	select ARM_ERRATA_836870
 	select MTK_IRQ_NEW_DESIGN
@@ -868,7 +868,7 @@ config ARCH_MT6735M
 	select ARM_MT6735_CPUIDLE
 	select MTK_BASE_POWER
 	select KERNEL_MODE_NEON
-	select CRYPTO_AES_ARM32_CE
+	select CRYPTO_AES_ARM_CE
 	select CRYPTO_SHA2_ARM_CE
 	select ARM_ERRATA_836870
 	select MTK_IRQ_NEW_DESIGN
@@ -906,7 +906,7 @@ config ARCH_MT6753
 	select CPU_IDLE
 	select ARM_MT6735_CPUIDLE
 	select KERNEL_MODE_NEON
-	select CRYPTO_AES_ARM32_CE
+	select CRYPTO_AES_ARM_CE
 	select CRYPTO_SHA2_ARM_CE
 	select MTK_BASE_POWER
 	select ARM_ERRATA_836870
@@ -1018,7 +1018,7 @@ config ARCH_MT6755
 	select CPU_IDLE
 	select PINCTRL
 	select KERNEL_MODE_NEON
-	select CRYPTO_AES_ARM32_CE
+	select CRYPTO_AES_ARM_CE
 	select CRYPTO_SHA2_ARM_CE
 	select MTK_BASE_POWER
 	select ARM_HAS_SG_CHAIN
@@ -1104,6 +1104,48 @@ config ARCH_MT8127
     select MTK_GIC_EXT
 	help
 	  This enable support for MediaTek MT8127
+
+config ARCH_MT8163
+	bool "MediaTek MT8163"
+	select ARCH_MEDIATEK
+	select SPARSE_IRQ
+	select ARM_KERNMEM_PERMS
+	select COMMON_CLK if !MTK_CLKMGR
+	select GENERIC_CLOCKEVENTS
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select ARCH_REQUIRE_GPIOLIB
+	select KERNEL_MODE_NEON
+	select CRYPTO_AES_ARM_BS
+	select ARM_HAS_SG_CHAIN
+	select MTK_BASE_POWER
+	select MFD_SYSCON
+	select CPU_IDLE
+	select ARM_ERRATA_814220
+	select MTK_SYS_CIRQ
+	select MTK_GIC_EXT
+	select MTK_SYSTRACKER
+	select ARM_GIC_V3
+	select HIGHMEM
+	select NEON
+	select AEABI
+	select VFP
+	select SMP
+	select USE_OF
+	select HAVE_ARM_ARCH_TIMER
+	select POWER_SUPPLY
+	select POWER_RESET
+	select AUTO_ZRELADDR
+	select ARM_PSCI
+	help
+	  This enable support for MediaTek MT8163. If you need support
+	  for MediaTek MT8163, say Y here.
+	  Please note this also select ARCH_MEDIATEK, so driver depends
+	  on it can be selected.
 
 config ARCH_MT7623
     bool "MediaTek MT7623"
@@ -1937,12 +1979,15 @@ choice
 	prompt "Timer frequency"
 
 config HZ_100
+	depends on !MTK_ENABLE_AGO
 	bool "100 Hz"
 
 config HZ_200
+	depends on !MTK_ENABLE_AGO
 	bool "200 Hz"
 
 config HZ_250
+	depends on !MTK_ENABLE_AGO
 	bool "250 Hz"
 
 config HZ_300

@@ -690,9 +690,6 @@ enum ppm_power_state ppm_judge_state_by_user_limit(enum ppm_power_state cur_stat
 	case PPM_POWER_STATE_L_ONLY:
 		new_state = (L_core_max == 0) ? PPM_POWER_STATE_LL_ONLY
 			: (LL_core_min <= 0 || LL_core_max == 0) ? cur_state
-			/* keep current if for only LL min is set */
-			: (LL_core_min > 0 && L_core_min == -1 &&
-				L_freq_max >= LL_freq_min && L_core_max >= LL_core_min) ? cur_state
 			/* will return NONE if LL min is set but L min is not */
 			: (L_core_min == 4) ? PPM_POWER_STATE_4L_LL
 			: (LL_core_min == 4) ? PPM_POWER_STATE_4LL_L

@@ -129,6 +129,21 @@ static struct attribute_group fts_gesture_group = {
     .attrs = fts_gesture_mode_attrs,
 };
 
+int touch_double_tap_read_fct(char *buf)
+{
+    int count;
+    u8 val;
+    struct input_dev *input_dev = fts_data->input_dev;
+    struct i2c_client *client = fts_data->client;
+
+    mutex_lock(&input_dev->mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "Gesture Mode: %s\n", fts_gesture_data.mode ? "On" : "Off");
+    count += sprintf(buf + count, "Reg(0xD0) = %d\n", val);
+    mutex_unlock(&input_dev->mutex);
+
+    return count;
+}
 /************************************************************************
 * Name: fts_gesture_show
 *  Brief:
@@ -150,6 +165,24 @@ static ssize_t fts_gesture_show(struct device *dev, struct device_attribute *att
     mutex_unlock(&input_dev->mutex);
 
     return count;
+}
+
+int touch_double_tap_write_fct(int enable)
+{
+    struct input_dev *input_dev = fts_data->input_dev;
+    mutex_lock(&input_dev->mutex);
+    if (enable) {
+        FTS_INFO("[GESTURE]enable gesture");
+        fts_gesture_data.mode = ENABLE;
+		g_ftgesture = 1;
+    } else {
+        FTS_INFO("[GESTURE]disable gesture");
+        fts_gesture_data.mode = DISABLE;
+		g_ftgesture = 0;
+    }
+    mutex_unlock(&input_dev->mutex);
+
+    return 0;
 }
 
 /************************************************************************

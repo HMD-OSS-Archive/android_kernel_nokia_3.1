@@ -4182,7 +4182,7 @@ static ssize_t cpufreq_freq_proc_write(struct file *file, const char __user *buf
 	unsigned long flags;
 	struct mt_cpu_dvfs *p = (struct mt_cpu_dvfs *)PDE_DATA(file_inode(file));
 	unsigned int cur_freq;
-	int freq, i, found;
+	int freq, i, found = 0;
 	int rc;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);

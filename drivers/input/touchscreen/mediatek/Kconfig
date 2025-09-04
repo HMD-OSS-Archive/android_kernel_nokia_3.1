@@ -28,6 +28,17 @@ config TOUCHSCREEN_MTK
 	  To compile this dirver as a module, choose M here: the
 	  module will be called.
 
+
+config TOUCHSCREEN_MTK_GT1151
+	bool "GT1151 for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT1151 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+
 source "drivers/input/touchscreen/mediatek/GT1151/Kconfig"
 
 config TOUCHSCREEN_NT36xxx
@@ -80,6 +91,19 @@ config TOUCHSCREEN_MTK_FOCALTECH_TS_FT8719
 	  module will be called.
 
 source "drivers/input/touchscreen/mediatek/focaltech_touch_ft8719/Kconfig"
+
+config TOUCHSCREEN_NT36xxx
+	tristate "NT36672 Touch Panel Driver"
+	default n
+	help
+	  Say Y here if you have NT36672 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/nt36672/Kconfig"
 
 config TOUCHSCREEN_MTK_GT1151TB
 	bool "GT1151 for Mediatek package"
@@ -255,4 +279,32 @@ config TOUCHSCREEN_LGE_FT8707
 	  connected to your system.
 	  To compile this dirver as a module, choose M here: the
 	  module will be called.
+
+
+
+config TOUCHSCREEN_MTK_GT5688
+	bool "GT5688 for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT5688 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT5688/Kconfig"
+
+config TOUCHSCREEN_MTK_NT36xxx
+	bool "NT36xxx for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT5688 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/NT36xxx/Kconfig"
 endif

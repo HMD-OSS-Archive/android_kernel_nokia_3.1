@@ -2642,7 +2642,16 @@ inline static int  adopt_CAMERA_HW_FeatureControl(void *pBuf)
 
 			unsigned long long *pFeaturePara_64=(unsigned long long *) pFeaturePara;
 			void *usr_ptr = (void *)(uintptr_t)(*(pFeaturePara_64 + 1));
-			#if 1
+			kal_uint32 buf_sz = (kal_uint32) (*(pFeaturePara_64 + 2));
+
+			/* buffer size exam */
+			if (buf_sz > PDAF_DATA_SIZE) {
+				kfree(pFeaturePara);
+				PK_ERR(" buffer size (%u) can't larger than %d bytes\n",
+					buf_sz, PDAF_DATA_SIZE);
+				return -EINVAL;
+			}
+
 			pPdaf_data = kmalloc(sizeof(char) * PDAF_DATA_SIZE, GFP_KERNEL);
 			if (pPdaf_data == NULL) {
 				PK_ERR(" ioctl allocate mem failed\n");
@@ -2652,7 +2661,7 @@ inline static int  adopt_CAMERA_HW_FeatureControl(void *pBuf)
 			memset(pPdaf_data, 0xff, sizeof(char) * PDAF_DATA_SIZE);
 
 			if (pFeaturePara_64 != NULL) {
-				*(pFeaturePara_64 + 1) = (uintptr_t)pPdaf_data;//*(pFeaturePara_64 + 1) = (uintptr_t)pPdaf_data;
+				*(pFeaturePara_64 + 1) = (uintptr_t)pPdaf_data;
 			}
 			if (g_pSensorFunc) {
 				ret =
@@ -2666,15 +2675,14 @@ inline static int  adopt_CAMERA_HW_FeatureControl(void *pBuf)
 				PK_DBG("[CAMERA_HW]ERROR:NULL g_pSensorFunc\n");
 			}
 
-			if (copy_to_user
-			    ((void __user *)usr_ptr, (void *)pPdaf_data,
-			     (kal_uint32) (*(pFeaturePara_64 + 2)))) {
-				PK_DBG("[CAMERA_HW]ERROR: copy_to_user fail \n");
+			if (copy_to_user(
+				(void __user *)usr_ptr, (void *)pPdaf_data,
+				buf_sz)) {
+				PK_DBG("[CAMERA_HW]ERROR: copy_to_user fail\n");
 			}
 			kfree(pPdaf_data);
 			*(pFeaturePara_64 + 1) =(uintptr_t) usr_ptr;
 
-#endif
 		}
 		break;
 	default:

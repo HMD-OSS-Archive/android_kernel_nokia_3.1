@@ -509,6 +509,40 @@ static ssize_t fts_irq_show(struct device *dev, struct device_attribute *attr, c
     return -EPERM;
 }
 
+int fih_fct_tpfwver_read(char *buf)
+{
+    struct fts_ts_data *ts_data = fts_data;
+    struct input_dev *input_dev = ts_data->input_dev;
+    struct i2c_client *client = ts_data->client;
+    ssize_t num_read_chars = 0;
+    u8 fwver = 0;
+    u8 vendor_id = 0;
+    int i2c_ret = -1;
+
+    if(ts_data->suspended == true){
+        num_read_chars = snprintf(buf, PAGE_SIZE, "TP was in sleep mode!\n");
+        return num_read_chars;
+    }
+
+    mutex_lock(&input_dev->mutex);
+
+#if FTS_ESDCHECK_EN
+    fts_esdcheck_proc_busy(1);
+#endif
+    i2c_ret = fts_i2c_read_reg(client, FTS_REG_FW_VER, &fwver);
+#if FTS_ESDCHECK_EN
+    fts_esdcheck_proc_busy(0);
+#endif
+    if(i2c_ret < 0)
+        num_read_chars = snprintf(buf, PAGE_SIZE, "I2c transfer error!\n");
+    else if ((fwver == 0xFF) || (fwver == 0x00))
+        num_read_chars = snprintf(buf, PAGE_SIZE, "get tp fw version fail!\n");
+    else
+	num_read_chars = snprintf(buf, PAGE_SIZE, "01_%02x_%02x_%02x\n", (unsigned int)ts_data->ic_info.ids.type, fwver, vendor_id);
+
+    mutex_unlock(&input_dev->mutex);
+    return num_read_chars;
+}
 /*
  * fts_tpfwver interface
  */

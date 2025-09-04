@@ -123,7 +123,7 @@ ifeq ($(CONFIG_HAVE_MTK_IN_HOUSE_TEE_SUPPORT),y)
 obj-$(CONFIG_TRUSTY) += gcpu/
 endif
 obj-$(CONFIG_TRUSTONIC_TEE_SUPPORT) += gud/
-obj-$(CONFIG_TRUSTONIC_TEE_SUPPORT) += secmem/
+obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) += trusted_mem/
 obj-$(CONFIG_MICROTRUST_TEE_SUPPORT) += teei/
 obj-$(CONFIG_MTK_DEBUG_LATCH)	+= debug_latch/
 obj-$(CONFIG_MTK_DEBUG_TRACER)	+= debug_tracer/
@@ -158,6 +158,7 @@ obj-$(CONFIG_MTK_MTD_NAND) += nand/
 obj-$(CONFIG_MTK_DUM_CHAR) += dum-char/
 obj-$(CONFIG_MTK_DYNAMIC_BOOST) += dynamic_boost/
 
+
 obj-$(CONFIG_MTK_USB2JTAG_SUPPORT) += usb2jtag/
 # Crypto performance tools (disable by default)
 obj-n += crypto/
@@ -167,6 +168,5 @@ obj-$(CONFIG_TRUSTONIC_TEE_SUPPORT) += secwidevine/
 obj-$(CONFIG_MTK_POWER_GS)      += power_gs/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += audio_ipi/
-obj-$(CONFIG_MTK_VOW_SUPPORT)	+= vow/
 obj-$(CONFIG_USB)	+= usb_boost/
 obj-$(CONFIG_RT_REGMAP) += rt-regmap/

@@ -18,6 +18,7 @@
 
 #include "connectivity_build_in_adapter.h"
 
+#include <kernel/sched/sched.h>
 
 /*device tree mode*/
 #ifdef CONFIG_OF
@@ -55,6 +56,7 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
 #include <sdio_ops.h>
+#include <mt_sleep.h>
 
 
 phys_addr_t gConEmiPhyBase;
@@ -88,6 +90,18 @@ void connectivity_export_tracing_record_cmdline(struct task_struct *tsk)
 	tracing_record_cmdline(tsk);
 }
 EXPORT_SYMBOL(connectivity_export_tracing_record_cmdline);
+
+unsigned int connectivity_export_slp_get_wake_reason(void)
+{
+	return slp_get_wake_reason();
+}
+EXPORT_SYMBOL(connectivity_export_slp_get_wake_reason);
+
+unsigned int connectivity_export_spm_get_last_wakeup_src(void)
+{
+	return spm_get_last_wakeup_src();
+}
+EXPORT_SYMBOL(connectivity_export_spm_get_last_wakeup_src);
 
 #ifdef CPU_BOOST
 void connectivity_export_mt_ppm_sysboost_freq(enum ppm_sysboost_user user, unsigned int freq)
@@ -196,6 +210,50 @@ int connectivity_export_mmc_io_rw_direct(struct mmc_card *card, int write, unsig
 	return mmc_io_rw_direct(card, write, fn, addr, in, out);
 }
 EXPORT_SYMBOL(connectivity_export_mmc_io_rw_direct);
+
+void connectivity_export_dump_thread_state(const char *name)
+{
+	static const char stat_nam[] = TASK_STATE_TO_CHAR_STR;
+	struct task_struct *g, *p;
+	int cpu;
+	struct rq *rq;
+	struct task_struct *curr;
+	struct thread_info *ti;
+
+	if (name == NULL || strlen(name) > 255) {
+		pr_warn("invalid pointer:%p or thread name length too long\n", name);
+		return;
+	}
+
+	pr_warn("start to show debug info of %s\n", name);
+
+	rcu_read_lock();
+	for_each_process_thread(g, p) {
+		unsigned long state = p->state;
+
+		if (strncmp(p->comm, name, strlen(name)) != 0)
+			continue;
+		cpu = task_cpu(p);
+		rq = cpu_rq(cpu);
+		curr = rq->curr;
+		ti = task_thread_info(curr);
+		if (state)
+			state = __ffs(state) + 1;
+		pr_err("%d:%-15.15s %c", p->pid, p->comm,
+		       state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
+		pr_err("cpu=%d on_cpu=%d ", cpu, p->on_cpu);
+		show_stack(p, NULL);
+		pr_err("CPU%d curr=%d:%-15.15s preempt_count=0x%x", cpu,
+		       curr->pid, curr->comm, ti->preempt_count);
+
+		if (state == TASK_RUNNING && curr != p)
+			show_stack(curr, NULL);
+
+		break;
+	}
+	rcu_read_unlock();
+}
+EXPORT_SYMBOL(connectivity_export_dump_thread_state);
 
 /*******************************************************************************
  * Watchdog

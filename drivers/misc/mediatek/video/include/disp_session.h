@@ -230,6 +230,7 @@ typedef struct disp_input_config_t {
 
 	uint32_t src_color_key;
 	uint32_t frm_sequence;
+	uint32_t dim_color;
 
 	void *dirty_roi_addr;
 	uint16_t dirty_roi_num;
@@ -412,9 +413,6 @@ typedef struct disp_caps_t {
 	DISP_CAP_OUTPUT_MODE output_mode;
 	DISP_CAP_OUTPUT_PASS output_pass;
 	unsigned int max_layer_num;
-#ifdef CONFIG_FOR_SOURCE_PQ
-	unsigned int max_pq_num;
-#endif
 	unsigned int disp_feature;
 	int is_support_frame_cfg_ioctl;
 	int is_output_rotated;
@@ -497,6 +495,7 @@ enum DISP_SELF_REFRESH_TYPE {
 	REFRESH_FOR_ANTI_LATENCY2,
 	REFRESH_FOR_SWITCH_DECOUPLE,
 	REFRESH_FOR_SWITCH_DECOUPLE_MIRROR,
+	REFRESH_FOR_IDLE,
 	REFRESH_TYPE_NUM,
 };
 

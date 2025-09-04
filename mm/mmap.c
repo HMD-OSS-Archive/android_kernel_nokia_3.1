@@ -1451,6 +1451,35 @@ static inline int mlock_future_check(struct mm_struct *mm,
 	return 0;
 }
 
+static inline u64 file_mmap_size_max(struct file *file, struct inode *inode)
+{
+	if (S_ISREG(inode->i_mode))
+		return MAX_LFS_FILESIZE;
+
+	if (S_ISBLK(inode->i_mode))
+		return MAX_LFS_FILESIZE;
+
+	/* Special "we do even unsigned file positions" case */
+	if (file->f_mode & FMODE_UNSIGNED_OFFSET)
+		return 0;
+
+	/* Yes, random drivers might want more. But I'm tired of buggy drivers */
+	return ULONG_MAX;
+}
+
+static inline bool file_mmap_ok(struct file *file, struct inode *inode,
+				unsigned long pgoff, unsigned long len)
+{
+	u64 maxsize = file_mmap_size_max(file, inode);
+
+	if (maxsize && len > maxsize)
+		return false;
+	maxsize -= len;
+	if (pgoff > maxsize >> PAGE_SHIFT)
+		return false;
+	return true;
+}
+
 /*
  * The caller must hold down_write(&current->mm->mmap_sem).
  */
@@ -1517,6 +1546,9 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 
 	if (file) {
 		struct inode *inode = file_inode(file);
+
+		if (!file_mmap_ok(file, inode, pgoff, len))
+			return -EOVERFLOW;
 
 		switch (flags & MAP_TYPE) {
 		case MAP_SHARED:
@@ -2372,7 +2404,8 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 		gap_addr = TASK_SIZE;
 
 	next = vma->vm_next;
-	if (next && next->vm_start < gap_addr) {
+	if (next && next->vm_start < gap_addr &&
+			(next->vm_flags & (VM_WRITE|VM_READ|VM_EXEC))) {
 		if (!(next->vm_flags & VM_GROWSUP))
 			return -ENOMEM;
 		/* Check that both stack segments have the same anon_vma? */
@@ -2452,7 +2485,8 @@ int expand_downwards(struct vm_area_struct *vma,
 	if (gap_addr > address)
 		return -ENOMEM;
 	prev = vma->vm_prev;
-	if (prev && prev->vm_end > gap_addr) {
+	if (prev && prev->vm_end > gap_addr &&
+			(prev->vm_flags & (VM_WRITE|VM_READ|VM_EXEC))) {
 		if (!(prev->vm_flags & VM_GROWSDOWN))
 			return -ENOMEM;
 		/* Check that both stack segments have the same anon_vma? */
@@ -2732,10 +2766,6 @@ int split_vma(struct mm_struct *mm, struct vm_area_struct *vma,
 	return __split_vma(mm, vma, addr, new_below);
 }
 
-#if defined(CONFIG_MTK_AEE_FEATURE) && defined(CONFIG_MT_ENG_BUILD)
-#include <mt-plat/aee.h>
-#endif
-
 /* Munmap is split into 2 main parts -- this part which finds
  * what needs doing, and the areas themselves, which do the
  * work.  This now handles partial unmappings.
@@ -2770,73 +2800,6 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 	end = start + len;
 	if (vma->vm_start >= end)
 		return 0;
-
-#if defined(CONFIG_MTK_AEE_FEATURE) && defined(CONFIG_MT_ENG_BUILD)
-	if (vma_get_anon_name(vma) && strncmp(current->comm, "kd", 2)) {
-		const char __user *anon_name = vma_get_anon_name(vma);
-		struct mm_struct *mm = vma->vm_mm;
-		unsigned long page_start_vaddr;
-		unsigned long page_offset;
-		unsigned long num_pages;
-		unsigned long max_len = NAME_MAX;
-		int i;
-		char name[NAME_MAX + 1];
-		unsigned long offset = 0;
-
-		page_start_vaddr = (unsigned long)anon_name & PAGE_MASK;
-		page_offset = (unsigned long)anon_name - page_start_vaddr;
-		num_pages = DIV_ROUND_UP(page_offset + max_len, PAGE_SIZE);
-
-		for (i = 0; i < num_pages; i++) {
-			int len;
-			int write_len;
-			const char *kaddr;
-			long pages_pinned;
-			struct page *page;
-
-			pages_pinned = get_user_pages(current, mm, page_start_vaddr,
-						1, 0, 0, &page, NULL);
-			if (pages_pinned < 1)
-				break;
-
-			kaddr = (const char *)kmap(page);
-			len = min(max_len, PAGE_SIZE - page_offset);
-			write_len = strnlen(kaddr + page_offset, len);
-			memcpy(name + offset, kaddr + page_offset, write_len);
-			offset += write_len;
-			name[offset] = '\0';
-			kunmap(page);
-			put_page(page);
-
-			/* if strnlen hit a null terminator then we're done */
-			if (write_len != len)
-				break;
-
-			max_len -= len;
-			page_offset = 0;
-			page_start_vaddr += PAGE_SIZE;
-		}
-
-		if (offset && strstr(name, "libc_malloc")) {
-			char msg_to_aee[70];
-
-			if (current->pid == current->tgid)
-				pr_debug("[lch_debug]main thread munmap libc_malloc: %s\n", current->comm);
-			else
-				pr_debug("[lch_debug]child thread munmap libc_malloc tgid:%d\n", current->tgid);
-
-			snprintf(msg_to_aee, sizeof(msg_to_aee),
-				"[pid:%d][%s]munmap page[0x%lx:0x%zx] unexpectly\n",
-				current->pid, current->comm, start, len);
-			aee_kernel_exception_api(__FILE__, __LINE__,
-				DB_OPT_DEFAULT |
-				DB_OPT_PROCESS_COREDUMP |
-				DB_OPT_PID_SMAPS |
-				DB_OPT_NATIVE_BACKTRACE,
-				"page_lost_debug", msg_to_aee);
-		}
-	}
-#endif
 
 	/*
 	 * If we need to split any vma, do it now to save pain later.

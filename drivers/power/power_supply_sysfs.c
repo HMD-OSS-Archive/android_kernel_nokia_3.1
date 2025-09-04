@@ -206,10 +206,10 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(charge_enabled),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
-	/* 20100723 James Lo */
-	POWER_SUPPLY_ATTR(batt_vol),
 	/*Jason: BAT_ID*/
 	POWER_SUPPLY_ATTR(bat_id),
+	/* 20100723 James Lo */
+	POWER_SUPPLY_ATTR(batt_vol),
 	POWER_SUPPLY_ATTR(bat_id_volt),
 	POWER_SUPPLY_ATTR(batt_temp),
 	/* 20100405 Add for EM */

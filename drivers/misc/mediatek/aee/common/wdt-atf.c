@@ -38,20 +38,15 @@
 #include <mach/wd_api.h>
 #include <ext_wd_drv.h>
 #include <smp.h>
-#ifndef CONFIG_ARM64
-#include <mach/irqs.h>
-#endif
 #include "aee-common.h"
 #include <mach/mt_secure_api.h>
 #ifdef CONFIG_MTK_EIC_HISTORY_DUMP
 #include <linux/irqchip/mt-eic.h>
 #endif
 #include <mrdump_private.h>
-#include "mtk_hps_external.h"
 
 #define THREAD_INFO(sp) ((struct thread_info *) \
 				((unsigned long)(sp) & ~(THREAD_SIZE - 1)))
-
 
 #define WDT_PERCPU_LOG_SIZE	2048
 #define WDT_LOG_DEFAULT_SIZE	4096
@@ -94,6 +89,7 @@ static struct stacks_buffer stacks_buffer_bin[NR_CPUS];
 struct regs_buffer {
 	struct pt_regs regs;
 	int real_len;
+	struct task_struct *tsk;
 };
 static struct regs_buffer regs_buffer_bin[NR_CPUS];
 
@@ -267,12 +263,12 @@ static void aee_wdt_dump_stack_bin(unsigned int cpu, unsigned long bottom, unsig
 		aee_wdt_percpu_printf(cpu, "%s bottom unaligned %08lx\n", __func__, bottom);
 		return;
 	}
-	if (!((bottom >= (PAGE_OFFSET + THREAD_SIZE)) && virt_addr_valid(bottom))) {
+	if (!((bottom >= (PAGE_OFFSET + THREAD_SIZE)) && mrdump_virt_addr_valid(bottom))) {
 		aee_wdt_percpu_printf(cpu, "%s bottom out of kernel addr space %08lx\n", __func__,
 				      bottom);
 		return;
 	}
-	if (!((top >= (PAGE_OFFSET + THREAD_SIZE)) && virt_addr_valid(bottom))) {
+	if (!((top >= (PAGE_OFFSET + THREAD_SIZE)) && mrdump_virt_addr_valid(bottom))) {
 		aee_wdt_percpu_printf(cpu, "%s top out of kernel addr space %08lx\n", __func__,
 				      top);
 		return;
@@ -308,7 +304,7 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 	struct pt_regs *excp_regs;
 
 	bottom = regs->reg_sp;
-	if (!virt_addr_valid(bottom)) {
+	if (!mrdump_virt_addr_valid(bottom)) {
 		aee_wdt_percpu_printf(cpu, "invalid sp[%lx]\n", bottom);
 		return;
 	}
@@ -320,16 +316,15 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 	for (i = 1; i < MAX_EXCEPTION_FRAME; i++) {
 		fp = cur_frame.fp;
 		if ((fp < bottom) || (fp >= (high + THREAD_SIZE))) {
-			/* aee_wdt_percpu_printf(cpu, "i=%d, fp=%lx, bottom=%lx\n", i, fp, bottom); */
+			aee_wdt_percpu_printf(cpu, "i=%d, fp=%lx, bottom=%lx\n", i, fp, bottom);
 			break;
 		}
 		if (unwind_frame(&cur_frame) < 0) {
 			aee_wdt_percpu_printf(cpu, "unwind_frame < 0\n");
 			break;
 		}
-		if (!((cur_frame.pc >= (PAGE_OFFSET + THREAD_SIZE))
-		      && virt_addr_valid(cur_frame.pc))) {
-			aee_wdt_percpu_printf(cpu, "virt_addr_valid fail\n");
+		if (!mrdump_virt_addr_valid(cur_frame.pc)) {
+			aee_wdt_percpu_printf(cpu, "i=%d, mrdump_virt_addr_valid fail\n", i);
 			break;
 		}
 		if (in_exception_text(cur_frame.pc)) {
@@ -402,7 +397,7 @@ static void aee_save_reg_stack_sram(int cpu)
 		memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
 	}
 
-	mrdump_mini_per_cpu_regs(cpu, &regs_buffer_bin[cpu].regs);
+	mrdump_mini_per_cpu_regs(cpu, &regs_buffer_bin[cpu].regs, regs_buffer_bin[cpu].tsk);
 }
 
 void aee_wdt_irq_info(void)
@@ -437,6 +432,8 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 		aee_wdt_dump_stack_bin(cpu, regs->reg_sp, regs->reg_sp + WDT_SAVE_STACK_SIZE);
 		aee_wdt_dump_backtrace(cpu, regs);
 	}
+
+	regs_buffer_bin[cpu].tsk = current;
 	if (atomic_xchg(&wdt_enter_fiq, 1) != 0) {
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_FIQ_LOOP);
 		aee_wdt_percpu_printf(cpu, "Other CPU already enter WDT FIQ handler\n");
@@ -503,8 +500,6 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	/* avoid lock prove to dump_stack in __debug_locks_off() */
 	xchg(&debug_locks, 0);
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_DONE);
-	/* Dump hot plug kernel backtrace */
-	hps_dump_task_info();
 	BUG();
 }
 

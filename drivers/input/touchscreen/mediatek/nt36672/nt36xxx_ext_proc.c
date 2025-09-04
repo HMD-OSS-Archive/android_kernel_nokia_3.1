@@ -20,6 +20,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 
 #ifdef CONFIG_GTP_USE_PMIC_DETECT_USB_PLUGIN
 #include <linux/uaccess.h>
@@ -28,10 +29,11 @@
 #include "nt36xxx.h"
 
 #if NVT_TOUCH_EXT_PROC
-#define NVT_FW_VERSION "nvt_fw_version"
-#define NVT_BASELINE "nvt_baseline"
-#define NVT_RAW "nvt_raw"
-#define NVT_DIFF "nvt_diff"
+#define NVT_FW_VERSION "AllHWList/tp_fw_ver"
+#define NVT_BASELINE "AllHWList/tp_baseline"
+#define NVT_RAW "AllHWList/tp_raw"
+#define NVT_DIFF "AllHWList/tp_diff"
+#define NVT_DOUBLE_TAP "AllHWList/tp_double_tap"
 
 #define I2C_TANSFER_LENGTH  64
 
@@ -48,6 +50,7 @@ static int32_t xdata_i[2048] = {0};
 static int32_t xdata_q[2048] = {0};
 
 static struct proc_dir_entry *NVT_proc_fw_version_entry;
+static struct proc_dir_entry *NVT_proc_double_tap_entry;
 static struct proc_dir_entry *NVT_proc_baseline_entry;
 static struct proc_dir_entry *NVT_proc_raw_entry;
 static struct proc_dir_entry *NVT_proc_diff_entry;
@@ -262,7 +265,8 @@ return:
 *******************************************************/
 static int32_t c_fw_version_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "fw_ver=%d, x_num=%d, y_num=%d, button_num=%d\n", ts->fw_ver, ts->x_num, ts->y_num, ts->max_button_num);
+	uint8_t vendor_id = 0;
+	seq_printf(m, "02_00_%02X_%02X\n", ts->fw_ver, vendor_id);
 	return 0;
 }
 
@@ -389,6 +393,59 @@ static const struct file_operations nvt_fw_version_fops = {
 	.llseek = seq_lseek,
 	.release = seq_release,
 };
+
+#if WAKEUP_GESTURE
+extern uint8_t g_gestureSwitch;
+static int fih_touch_double_tap_read_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "Gesture Mode: %s\n", g_gestureSwitch ? "On" : "Off");
+	return 0;
+}
+
+static int fih_touch_double_tap_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, fih_touch_double_tap_read_show, NULL);
+};
+
+static ssize_t fih_touch_double_tap_proc_write(struct file *file, const char __user *buffer,
+	size_t count, loff_t *ppos)
+{
+	char *buf;
+	if (count < 1)
+		return -EINVAL;
+
+	buf = kzalloc(count+1, GFP_KERNEL);
+	memset( buf, 0, count+1 );
+	if (!buf)
+		return -ENOMEM;
+	if (copy_from_user(buf, buffer, count))
+	{
+		kfree(buf);
+		return -EFAULT;
+	}
+	g_gestureSwitch = simple_strtoul(buf, NULL, 10);
+
+	if((g_gestureSwitch != 0) &&  (g_gestureSwitch != 1))
+	{
+		pr_err("F@Touch %s, wrong value, double_tap = %d, *buf = %x\n", __func__, g_gestureSwitch, *buf);
+		kfree(buf);
+		return -EINVAL;
+	}
+
+	kfree(buf);
+	return count;
+}
+
+static struct file_operations touch_double_tap_proc_file_ops = {
+	.owner   = THIS_MODULE,
+	.write   = fih_touch_double_tap_proc_write,
+	.open    = fih_touch_double_tap_proc_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = single_release
+};
+
+#endif
 
 /*******************************************************
 Description:
@@ -712,6 +769,14 @@ int32_t nvt_extra_proc_init(void)
 		return -ENOMEM;
 	} else {
 		NVT_LOG("create proc/nvt_fw_version Succeeded!\n");
+	}
+
+	NVT_proc_double_tap_entry = proc_create(NVT_DOUBLE_TAP, 0444, NULL,&touch_double_tap_proc_file_ops);
+	if (NVT_proc_fw_version_entry == NULL) {
+		NVT_ERR("create proc/AllHWList/tp_double_tap Failed!\n");
+		return -ENOMEM;
+	} else {
+		NVT_LOG("create proc/AllHWList/tp_double_tap Succeeded!\n");
 	}
 
 	NVT_proc_baseline_entry = proc_create(NVT_BASELINE, 0444, NULL,&nvt_baseline_fops);

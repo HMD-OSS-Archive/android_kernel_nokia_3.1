@@ -99,6 +99,7 @@ static int ovl_mapping_table[HRT_TB_NUM] = {
 	0x000800A8,
 };
 #endif
+
 #define GET_SYS_STATE(sys_state) ((l_rule_info.hrt_sys_state >> sys_state) & 0x1)
 
 static void layering_rule_senario_decision(disp_layer_info *disp_info)

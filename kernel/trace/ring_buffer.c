@@ -340,6 +340,8 @@ EXPORT_SYMBOL_GPL(ring_buffer_event_data);
 /* Missed count stored at end */
 #define RB_MISSED_STORED	(1 << 30)
 
+#define RB_MISSED_FLAGS		(RB_MISSED_EVENTS|RB_MISSED_STORED)
+
 struct buffer_data_page {
 	u64		 time_stamp;	/* page time stamp */
 	local_t		 commit;	/* write committed index */
@@ -391,7 +393,9 @@ static void rb_init_page(struct buffer_data_page *bpage)
  */
 size_t ring_buffer_page_len(void *page)
 {
-	return local_read(&((struct buffer_data_page *)page)->commit)
+	struct buffer_data_page *bpage = page;
+
+	return (local_read(&bpage->commit) & ~RB_MISSED_FLAGS)
 		+ BUF_PAGE_HDR_SIZE;
 }
 
@@ -1334,7 +1338,6 @@ static void rb_free_cpu_buffer(struct ring_buffer_per_cpu *cpu_buffer)
 	}
 
 	kfree(cpu_buffer);
-	cpu_buffer = NULL;
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -1355,7 +1358,7 @@ static int rb_cpu_notify(struct notifier_block *self,
 struct ring_buffer *__ring_buffer_alloc(unsigned long size, unsigned flags,
 					struct lock_class_key *key)
 {
-	struct ring_buffer *buffer = NULL;
+	struct ring_buffer *buffer;
 	long nr_pages;
 	int bsize;
 	int cpu;
@@ -1454,21 +1457,17 @@ ring_buffer_free(struct ring_buffer *buffer)
 		__unregister_cpu_notifier(&buffer->cpu_notify);
 	#endif
 
-		for_each_buffer_cpu(buffer, cpu) {
-			if (buffer->buffers[cpu])
-				rb_free_cpu_buffer(buffer->buffers[cpu]);
-		}
+		for_each_buffer_cpu(buffer, cpu)
+			rb_free_cpu_buffer(buffer->buffers[cpu]);
 
 	#ifdef CONFIG_HOTPLUG_CPU
 		cpu_notifier_register_done();
 	#endif
 
 		kfree(buffer->buffers);
-		buffer->buffers = NULL;
 		free_cpumask_var(buffer->cpumask);
 
 		kfree(buffer);
-		buffer = NULL;
 	}
 }
 EXPORT_SYMBOL_GPL(ring_buffer_free);
@@ -3179,6 +3178,22 @@ EXPORT_SYMBOL_GPL(ring_buffer_record_on);
 int ring_buffer_record_is_on(struct ring_buffer *buffer)
 {
 	return !atomic_read(&buffer->record_disabled);
+}
+
+/**
+ * ring_buffer_record_is_set_on - return true if the ring buffer is set writable
+ * @buffer: The ring buffer to see if write is set enabled
+ *
+ * Returns true if the ring buffer is set writable by ring_buffer_record_on().
+ * Note that this does NOT mean it is in a writable state.
+ *
+ * It may return true when the ring buffer has been disabled by
+ * ring_buffer_record_disable(), as that is a temporary disabling of
+ * the ring buffer.
+ */
+int ring_buffer_record_is_set_on(struct ring_buffer *buffer)
+{
+	return !(atomic_read(&buffer->record_disabled) & RB_BUFFER_OFF);
 }
 
 /**

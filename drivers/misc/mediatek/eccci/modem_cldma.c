@@ -2070,7 +2070,6 @@ static int md_cd_start(struct ccci_modem *md)
 
 	if (md->config.setting & MD_SETTING_FIRST_BOOT) {
 		md_cd_late_init(md);
-		CCCI_INIT_LOG(md->index, TAG, "MD_SETTING_FIRST_BOOT\n");
 		/* init security, as security depends on dummy_char, which is ready very late. */
 		ccci_init_security();
 		/* MD will clear share memory itself after the first boot */

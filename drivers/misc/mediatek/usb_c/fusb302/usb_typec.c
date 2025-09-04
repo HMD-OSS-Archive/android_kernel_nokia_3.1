@@ -1224,6 +1224,7 @@ void SetStateAttachedSink(void)
 	Registers.Control.HOST_CUR = 0x00;	/* Disable the host current */
 	Registers.Measure.MDAC = MDAC_2P05V;	/* Set up DAC threshold to 2.05V */
 	/* Enable the pull-downs on the CC pins, measure CC1 and disable the BMC transmitters */
+	Registers.Switches.word = 0x0007;
 	Registers.Switches.word = 0x0003;	/* Enable the pull-downs on the CC pins */
 	if (blnCCPinIsCC1)
 		Registers.Switches.MEAS_CC1 = 1;
@@ -1861,8 +1862,6 @@ static int usb3_switch_en(struct usbtypc *typec, int on)
 
 	fusb_printk(K_DEBUG, "%s on=%d\n", __func__, on);
 
-	spin_lock(&typec->fsm_lock);
-
 	if (on == ENABLE) {	/*enable usb switch */
 		pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_oen_low);
 		typec->u3_sw->en = ENABLE;
@@ -1870,8 +1869,6 @@ static int usb3_switch_en(struct usbtypc *typec, int on)
 		pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_oen_high);
 		typec->u3_sw->en = DISABLE;
 	}
-
-	spin_unlock(&typec->fsm_lock);
 
 	/*fusb_printk(K_DEBUG, "%s gpio=%d\n", __func__, gpio_get_value(typec->u3_sw->en_gpio));*/
 end:
@@ -1890,8 +1887,6 @@ static int usb3_switch_sel(struct usbtypc *typec, int sel)
 
 	fusb_printk(K_DEBUG, "%s on=%d\n", __func__, sel);
 
-	spin_lock(&typec->fsm_lock);
-
 	if (sel == UP_SIDE) {	/*select SW1 */
 		pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_sel_low);
 		typec->u3_sw->sel = sel;
@@ -1899,8 +1894,6 @@ static int usb3_switch_sel(struct usbtypc *typec, int sel)
 		pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_sel_high);
 		typec->u3_sw->sel = sel;
 	}
-
-	spin_unlock(&typec->fsm_lock);
 
 	/*fusb_printk(K_DEBUG, "%s gpio=%d\n", __func__, gpio_get_value(typec->u3_sw->sel_gpio));*/
 end:
@@ -2015,15 +2008,11 @@ int usb3_switch_init(struct usbtypc *typec)
 	typec->u3_sw->sel_gpio = 252;
 	typec->u3_sw->sel = DOWN_SIDE;
 
-	spin_lock(&typec->fsm_lock);
-
 	/*chip enable pin*/
 	pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_oen_init);
 
 	/*dir selection */
 	pinctrl_select_state(typec->pinctrl, typec->pin_cfg->fusb340_sel_init);
-
-	spin_unlock(&typec->fsm_lock);
 
 	/*fusb_printk(K_DEBUG, "en_gpio=0x%X, out=%d\n", typec->u3_sw->en_gpio,
 		    gpio_get_value(typec->u3_sw->en_gpio));*/
@@ -2048,12 +2037,8 @@ int usb_redriver_init(struct usbtypc *typec)
 	typec->u_rd->c2_gpio = u3_eq_c2;
 	typec->u_rd->eq_c2 = U3_EQ_LOW;
 
-	spin_lock(&typec->fsm_lock);
-
 	pinctrl_select_state(typec->pinctrl, typec->pin_cfg->re_c1_init);
 	pinctrl_select_state(typec->pinctrl, typec->pin_cfg->re_c2_init);
-
-	spin_unlock(&typec->fsm_lock);
 
 	/*fusb_printk(K_DEBUG, "c1_gpio=0x%X, out=%d\n", typec->u_rd->c1_gpio,
 		    gpio_get_value(typec->u_rd->c1_gpio));*/
@@ -2082,8 +2067,6 @@ int usb_redriver_config(struct usbtypc *typec, int ctrl_pin, int stat)
 	}
 
 	fusb_printk(K_DEBUG, "%s pin=%d, stat=%d\n", __func__, ctrl_pin, stat);
-
-	spin_lock(&typec->fsm_lock);
 
 	if (ctrl_pin == U3_EQ_C1) {
 		pin_num = typec->u_rd->c1_gpio;
@@ -2120,8 +2103,6 @@ int usb_redriver_config(struct usbtypc *typec, int ctrl_pin, int stat)
 		retval = -EINVAL;
 		break;
 	}
-
-	spin_unlock(&typec->fsm_lock);
 
 	/*fusb_printk(K_DEBUG, "%s gpio=%d, out=%d\n", __func__, pin_num,
 		    gpio_get_value(pin_num));*/
@@ -2205,11 +2186,10 @@ void fusb300_i2c_w_reg8(struct i2c_client *client, u8 addr, u8 var)
 u8 fusb300_i2c_r_reg(struct i2c_client *client, u8 addr)
 {
 	u8 var;
-	int ret;
 
 	i2c_master_send(client, &addr, 1);
-	ret = i2c_master_recv(client, &var, 1);
-	return ((ret < 0) ? 0 : var);
+	i2c_master_recv(client, &var, 1);
+	return var;
 }
 
 const char *strings[] = {

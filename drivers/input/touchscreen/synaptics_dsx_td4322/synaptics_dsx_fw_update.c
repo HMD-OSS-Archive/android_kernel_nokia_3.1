@@ -449,7 +449,6 @@ struct f34_v7_data_1_5 {
 	};
 };
 
-/* OPPO begin*/
 struct synaptics_rmi4_f01_device_status {
 	union {
 		struct {
@@ -461,7 +460,6 @@ struct synaptics_rmi4_f01_device_status {
 		unsigned char data[1];
 	};
 };
-/* OPPO end*/
 
 struct f34_v5v6_flash_properties {
 	union {
@@ -632,7 +630,7 @@ struct synaptics_rmi4_fwu_handle {
 	bool initialized;
 	bool in_bl_mode;
 	bool in_ub_mode;
-	bool dp_crc_failed; /*for oppo*/
+	bool dp_crc_failed;
 	bool force_update;
 	bool erase_all;
 	bool do_lockdown;
@@ -1733,7 +1731,6 @@ static int fwu_read_f34_v7_queries(void)
 	return 0;
 }
 
-/* OPPO begin*/
 static int fwu_synaptics_read_crc_err(void)
 {
 	int retval;
@@ -1762,7 +1759,6 @@ static int fwu_synaptics_read_crc_err(void)
 
 	return 0;
 }
-/* OPPO end*/
 
 static int fwu_read_f34_v5v6_queries(void)
 {
@@ -3528,7 +3524,7 @@ static int fwu_start_reflash(void)
 				"%s: Device in bootloader mode\n",
 				__func__);
 		pr_info("%s in bl mode\n", __func__);
-		fwu_synaptics_read_crc_err(); /* for OPPO*/
+		fwu_synaptics_read_crc_err();
 	}
 
 	flash_area = fwu_go_nogo();

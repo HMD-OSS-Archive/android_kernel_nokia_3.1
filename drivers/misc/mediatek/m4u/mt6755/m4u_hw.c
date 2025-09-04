@@ -295,7 +295,7 @@ int config_mau(M4U_MAU_STRUCT mau)
 	if (mau.enable == 0)
 		return 0;
 
-	if (free_id == -1) {
+	if (free_id < 0) {
 		if (mau.force == 0)
 			return -1;
 		}
@@ -305,12 +305,12 @@ int config_mau(M4U_MAU_STRUCT mau)
 			gMAU_candidate_id = M4U0_MAU_NR - 1;
 		else
 			gMAU_candidate_id--;
-	}
 
-	gM4u0_mau[free_id].Enabled = 1;
-	gM4u0_mau[free_id].MVAStart = MVAStart;
-	gM4u0_mau[free_id].MVAEnd = MVAEnd;
-	gM4u0_mau[free_id].port = mau.port;
+		gM4u0_mau[free_id].Enabled = 1;
+		gM4u0_mau[free_id].MVAStart = MVAStart;
+		gM4u0_mau[free_id].MVAEnd = MVAEnd;
+		gM4u0_mau[free_id].port = mau.port;
+	}
 
 	mau_start_monitor(m4u_id, larb_2_m4u_slave_id(larb), free_id, (int)mau.write,
 			1, 0, 0, MVAStart, MVAEnd, 1 << m4u_port_2_larb_port(mau.port), 1 << larb);

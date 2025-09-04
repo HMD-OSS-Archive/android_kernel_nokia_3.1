@@ -310,8 +310,6 @@ export MTK_PLATFORM MTK_PROJECT MTK_TARGET_PROJECT
 KBUILD_CPPFLAGS += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 KBUILD_CPPFLAGS += -I$(srctree)/arch/arm/mach-mediatek/include/
 -include $(srctree)/scripts/drvgen/drvgen.mk
-archprepare: $(DRVGEN_FILE_LIST)
-dtbs: $(DRVGEN_FILE_LIST)
 
 boot := arch/arm/boot
 
@@ -333,14 +331,14 @@ $(BOOT_TARGETS): vmlinux
 $(INSTALL_TARGETS):
 	$(Q)$(MAKE) $(build)=$(boot) MACHINE=$(MACHINE) $@
 
-%.dtb: | scripts
+%.dtb: | scripts $(DRVGEN_FILE_LIST)
 	$(Q)$(MAKE) $(build)=$(boot)/dts MACHINE=$(MACHINE) $(boot)/dts/$@
 
 PHONY += dtbs dtbs_install
-dtbs dtbs_install: prepare scripts
+dtbs dtbs_install: prepare scripts $(DRVGEN_FILE_LIST) dtbo_check
 	$(Q)$(MAKE) $(build)=$(boot)/dts MACHINE=$(MACHINE) $@
 
-zImage-dtb: vmlinux scripts dtbs $(DTB_OVERLAY_IMAGE_TAGERT)
+zImage-dtb: vmlinux scripts dtbs
 	$(Q)$(MAKE) $(build)=$(boot) MACHINE=$(MACHINE) $(boot)/$@
 
 PHONY += vdso_install

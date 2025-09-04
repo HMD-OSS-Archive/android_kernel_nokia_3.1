@@ -233,7 +233,7 @@ static int mtktscharger_sysrst_set_cur_state(struct thermal_cooling_device *cdev
 #ifndef CONFIG_ARM64
 		BUG();
 #else
-		*(unsigned int *)0x0 = 0xdead;	/* To trigger data abort to reset the system for thermal protection. */
+		BUG();	/* To trigger data abort to reset the system for thermal protection. */
 #endif
 #endif
 	}

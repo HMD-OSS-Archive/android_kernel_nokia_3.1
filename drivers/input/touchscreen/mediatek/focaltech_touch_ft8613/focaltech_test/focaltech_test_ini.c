@@ -1,5 +1,5 @@
 /************************************************************************
-* Copyright (C) 2012-2015, Focaltech Systems (R)£¬All Rights Reserved.
+* Copyright (C) 2012-2015, Focaltech Systems (R)Â£Â¬All Rights Reserved.
 *
 * File Name: focaltech_test_ini.c
 *
@@ -11,7 +11,6 @@
 *
 ************************************************************************/
 #include "focaltech_test.h"
-
 /* '[' ']':Section Symbol-Can be defined according to the special need to change */
 const char CFG_SSL = '[';
 const char CFG_SSR = ']';
@@ -41,7 +40,7 @@ int fts_strncmp(const char *cs, const char *ct, size_t count)
 /*************************************************************
 Function:  Get the value of key
 Input: char * filedata; char * section; char * key
-Output: char * value¡¡key
+Output: char * valueÂ¡Â¡key
 Return: 0       SUCCESS
         -1      can not find section
         -2      can not find key
@@ -366,7 +365,7 @@ cfg_scts_end:
 }
 
 /*
- * fts_ic_table_get_ic_code_from_ic_name - Get IC NAME£¬From IC CODE
+ * fts_ic_table_get_ic_code_from_ic_name - Get IC NAMEÂ£Â¬From IC CODE
  */
 unsigned int fts_ic_table_get_ic_code_from_ic_name(char *strIcName)
 {
@@ -460,7 +459,7 @@ unsigned int fts_ic_table_get_ic_code_from_ic_name(char *strIcName)
 }
 
 /*
- * fts_ic_table_get_ic_name_from_ic_code - Get IC CODE£¬From IC NAME
+ * fts_ic_table_get_ic_name_from_ic_code - Get IC CODEÂ£Â¬From IC NAME
  */
 void fts_ic_table_get_ic_name_from_ic_code(unsigned int ucIcCode, char *strIcName)
 {
@@ -588,13 +587,13 @@ int fts_test_get_ini_size(char *config_name)
     struct file *pfile = NULL;
     struct inode *inode = NULL;
     off_t fsize = 0;
-    char filepath[128];
+    char *filepath = config_name;
 
     FTS_TEST_FUNC_ENTER();
-
+#if 0
     memset(filepath, 0, sizeof(filepath));
     sprintf(filepath, "%s%s", FTS_INI_FILE_PATH, config_name);
-
+#endif
     if (NULL == pfile)
         pfile = filp_open(filepath, O_RDONLY, 0);
     if (IS_ERR(pfile)) {
@@ -617,14 +616,17 @@ int fts_test_read_ini_data(char *config_name, char *config_buf)
     struct file *pfile = NULL;
     struct inode *inode = NULL;
     off_t fsize = 0;
-    char filepath[128];
+    char *filepath = config_name;
     loff_t pos = 0;
     mm_segment_t old_fs;
 
     FTS_TEST_FUNC_ENTER();
 
+#if 0
     memset(filepath, 0, sizeof(filepath));
     sprintf(filepath, "%s%s", FTS_INI_FILE_PATH, config_name);
+#endif
+
     if (NULL == pfile) {
         pfile = filp_open(filepath, O_RDONLY, 0);
     }

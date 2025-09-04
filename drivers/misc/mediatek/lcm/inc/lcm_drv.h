@@ -466,7 +466,7 @@ typedef struct {
 
 
 /* --------------------------------------------------------------------------- */
-#define RT_MAX_NUM 10
+#define RT_MAX_NUM 20
 #define ESD_CHECK_NUM 3
 typedef struct {
 	unsigned char cmd;
@@ -646,10 +646,8 @@ typedef struct {
 	unsigned int od_table_size;
 	void *od_table;
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
-	unsigned int full_content;
 	unsigned int corner_pattern_width;
 	unsigned int corner_pattern_height;
-	unsigned int corner_pattern_height_bot;
 #endif
 
 } LCM_PARAMS;

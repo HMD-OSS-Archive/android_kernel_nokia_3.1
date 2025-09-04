@@ -44,6 +44,12 @@
 #include <linux/freezer.h>
 #include <linux/cpu.h>
 
+#define MTK_LMK_USER_EVENT
+
+#ifdef MTK_LMK_USER_EVENT
+#include <linux/miscdevice.h>
+#endif
+
 #if defined(CONFIG_MTK_AEE_FEATURE) && defined(CONFIG_MT_ENG_BUILD)
 #include <mt-plat/aee.h>
 #include <disp_assert_layer.h>
@@ -88,8 +94,6 @@ static DEFINE_SPINLOCK(lowmem_shrink_lock);
 #define CREATE_TRACE_POINTS
 #include "trace/lowmemorykiller.h"
 
-#include "internal.h"
-
 static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[9] = {
 	0,
@@ -133,6 +137,56 @@ static unsigned long lowmem_count(struct shrinker *s,
 		global_page_state(NR_INACTIVE_FILE);
 }
 
+#ifdef MTK_LMK_USER_EVENT
+static const struct file_operations mtklmk_fops = {
+	.owner = THIS_MODULE,
+};
+
+static struct miscdevice mtklmk_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "mtklmk",
+	.fops = &mtklmk_fops,
+};
+
+static struct work_struct mtklmk_work;
+static int uevent_adj, uevent_minfree;
+static void mtklmk_async_uevent(struct work_struct *work)
+{
+#define MTKLMK_EVENT_LENGTH	(24)
+	char adj[MTKLMK_EVENT_LENGTH], free[MTKLMK_EVENT_LENGTH];
+	char *envp[3] = { adj, free, NULL };
+
+	snprintf(adj, MTKLMK_EVENT_LENGTH, "OOM_SCORE_ADJ=%d", uevent_adj);
+	snprintf(free, MTKLMK_EVENT_LENGTH, "MINFREE=%d", uevent_minfree);
+	kobject_uevent_env(&mtklmk_misc.this_device->kobj, KOBJ_CHANGE, envp);
+#undef MTKLMK_EVENT_LENGTH
+}
+
+static unsigned int mtklmk_initialized;
+static unsigned int mtklmk_uevent_timeout = 10000; /* ms */
+module_param_named(uevent_timeout, mtklmk_uevent_timeout, uint, 0644);
+static void mtklmk_uevent(int oom_score_adj, int minfree)
+{
+	static unsigned long last_time;
+	unsigned long timeout;
+
+	/* change to use jiffies */
+	timeout = msecs_to_jiffies(mtklmk_uevent_timeout);
+
+	if (!last_time)
+		last_time = jiffies - timeout;
+
+	if (time_before(jiffies, last_time + timeout))
+		return;
+
+	last_time = jiffies;
+
+	uevent_adj = oom_score_adj;
+	uevent_minfree = minfree;
+	schedule_work(&mtklmk_work);
+}
+#endif
+
 static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
@@ -153,9 +207,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 
 	int print_extra_info = 0;
 	static unsigned long lowmem_print_extra_info_timeout;
-	enum zone_type high_zoneidx = gfp_zone(sc->gfp_mask);
 	int d_state_is_found = 0;
-	int unreclaimable_zones = 0;
 #if defined(CONFIG_SWAP) && defined(CONFIG_MTK_GMO_RAM_OPTIMIZE)
 	int to_be_aggressive = 0;
 	unsigned long swap_pages = 0;
@@ -172,6 +224,10 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	int log_offset = 0, log_ret;
 #endif /* CONFIG_MT_ENG_BUILD*/
 
+	/* Do not use in kernel lowmemorykiller */
+	if (IS_ENABLED(CONFIG_MEMCG) && (lowmem_minfree[0] == 0))
+		return SHRINK_STOP;
+
 	/* Check whether it is in cpu_hotplugging */
 	in_cpu_hotplugging = cpu_hotplugging();
 
@@ -183,61 +239,6 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	if (!spin_trylock(&lowmem_shrink_lock)) {
 		lowmem_print(4, "lowmem_shrink lock failed\n");
 		return SHRINK_STOP;
-	}
-
-	/*
-	 * Check whether it is caused by low memory in lower zone(s)!
-	 * This will help solve over-reclaiming situation while total number
-	 * of free pages is enough, but lower zone(s) is(are) under low memory.
-	 */
-	if (high_zoneidx < MAX_NR_ZONES - 1) {
-		struct pglist_data *pgdat;
-		struct zone *z;
-		enum zone_type zoneidx;
-		unsigned long accumulated_pages = 0, scale = totalram_pages;
-		int new_other_free = 0, new_other_file = 0;
-		int memory_pressure = 0;
-
-		/* Go through all memory nodes */
-		for_each_online_pgdat(pgdat) {
-			for (zoneidx = 0; zoneidx <= high_zoneidx; zoneidx++) {
-				z = pgdat->node_zones + zoneidx;
-				accumulated_pages += z->managed_pages;
-				new_other_free += zone_page_state(z, NR_FREE_PAGES);
-				new_other_free -= high_wmark_pages(z);
-				new_other_file += zone_page_state(z, NR_FILE_PAGES);
-				new_other_file -= zone_page_state(z, NR_SHMEM);
-
-				/* Compute memory pressure level */
-				memory_pressure += zone_page_state(z, NR_ACTIVE_FILE) +
-					zone_page_state(z, NR_INACTIVE_FILE) +
-					zone_page_state(z, NR_ACTIVE_ANON) +
-					zone_page_state(z, NR_INACTIVE_ANON) +
-					new_other_free;
-
-				/* Check whether there is any unreclaimable memory zone */
-				if (populated_zone(z) && !zone_reclaimable(z))
-					unreclaimable_zones++;
-			}
-		}
-
-		/*
-		 * Update if we go through ONLY lower zone(s) ACTUALLY
-		 * and scale in totalram_pages
-		 */
-		if (totalram_pages > accumulated_pages) {
-			do_div(scale, accumulated_pages);
-			if (totalram_pages > accumulated_pages * scale)
-				scale += 1;
-			new_other_free *= scale;
-			new_other_file *= scale;
-		}
-
-		/* Update if not kswapd or "being kswapd and high memory pressure" */
-		if (!current_is_kswapd() || (current_is_kswapd() && memory_pressure < 0)) {
-			other_free = new_other_free;
-			other_file = new_other_file;
-		}
 	}
 
 	/* Let other_free be positive or zero */
@@ -287,10 +288,6 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		}
 	}
 
-	/* Promote its priority */
-	if (unreclaimable_zones > 0)
-		min_score_adj = lowmem_adj[0];
-
 	/* If in CPU hotplugging, let LMK be more aggressive */
 	if (in_cpu_hotplugging) {
 		pr_alert("Aggressive LMK during CPU hotplug!\n");
@@ -321,7 +318,13 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 
 	selected_oom_score_adj = min_score_adj;
 
-	/* add debug log */
+#ifdef MTK_LMK_USER_EVENT
+	/* Send uevent if needed */
+	if (mtklmk_initialized && current_is_kswapd() && mtklmk_uevent_timeout)
+		mtklmk_uevent(min_score_adj, minfree);
+#endif
+
+	/* More debug log */
 	if (output_expect(enable_candidate_log)) {
 		if (min_score_adj <= lowmem_debug_adj) {
 			if (time_after_eq(jiffies, lowmem_print_extra_info_timeout)) {
@@ -616,7 +619,11 @@ static int __init lowmem_init(void)
 #endif
 
 #ifdef CONFIG_ZRAM
+#ifndef CONFIG_MTK_GMO_RAM_OPTIMIZE
 	vm_swappiness = 100;
+#else
+	vm_swappiness = 120;
+#endif
 #endif
 
 
@@ -627,6 +634,17 @@ static int __init lowmem_init(void)
 	total_low_ratio = (totalram_pages + normal_pages - 1) / normal_pages;
 	pr_err("[LMK]total_low_ratio[%d] - totalram_pages[%lu] - totalhigh_pages[%lu]\n",
 			total_low_ratio, totalram_pages, totalhigh_pages);
+#endif
+
+#ifdef MTK_LMK_USER_EVENT
+	/* initialize work for uevent */
+	INIT_WORK(&mtklmk_work, mtklmk_async_uevent);
+
+	/* register as misc device */
+	if (!misc_register(&mtklmk_misc)) {
+		pr_info("%s: successful to register misc device!\n", __func__);
+		mtklmk_initialized = 1;
+	}
 #endif
 
 	return 0;
@@ -836,4 +854,3 @@ late_initcall(lowmem_init);
 module_exit(lowmem_exit);
 
 MODULE_LICENSE("GPL");
-

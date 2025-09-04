@@ -100,7 +100,13 @@ static volatile int g_aal_need_lock;
 static atomic_t g_aal_force_enable_irq = ATOMIC_INIT(0);
 
 #ifdef AAL_SUPPORT_KERNEL_API
-static volatile unsigned int g_aal_panel_type = CONFIG_BY_CUSTOM_LIB;
+static atomic_t g_aal_panel_type = ATOMIC_INIT(CONFIG_BY_CUSTOM_LIB);
+static int g_aal_ess_level = ESS_LEVEL_BY_CUSTOM_LIB;
+static int g_aal_dre_en = DRE_EN_BY_CUSTOM_LIB;
+static int g_aal_ess_en = ESS_EN_BY_CUSTOM_LIB;
+static int g_aal_ess_level_cmd_id;
+static int g_aal_dre_en_cmd_id;
+static int g_aal_ess_en_cmd_id;
 #endif
 
 static int disp_aal_get_cust_led(void)
@@ -447,10 +453,10 @@ void disp_aal_set_lcm_type(unsigned int panel_type)
 	unsigned long flags;
 
 	spin_lock_irqsave(&g_aal_hist_lock, flags);
-	g_aal_panel_type = panel_type;
+	atomic_set(&g_aal_panel_type, panel_type);
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 
-	AAL_DBG("disp_aal_set_lcm_type: %d", g_aal_panel_type);
+	AAL_DBG("disp_aal_set_lcm_type: %d", panel_type);
 #else
 	AAL_ERR("disp_aal_set_lcm_type not support");
 #endif
@@ -464,9 +470,13 @@ static int disp_aal_copy_hist_to_user(DISP_AAL_HIST __user *hist)
 	/* We assume only one thread will call this function */
 
 	spin_lock_irqsave(&g_aal_hist_lock, flags);
-#ifdef AAL_CUSTOMER_GET_PANEL_TYPE
-	g_aal_hist.panel_type = g_aal_panel_type;
+#ifdef AAL_SUPPORT_KERNEL_API
+	g_aal_hist.panel_type = atomic_read(&g_aal_panel_type);
+	g_aal_hist.essStrengthIndex = g_aal_ess_level;
+	g_aal_hist.ess_enable = g_aal_ess_en;
+	g_aal_hist.dre_enable = g_aal_dre_en;
 #endif
+
 	memcpy(&g_aal_hist_db, &g_aal_hist, sizeof(DISP_AAL_HIST));
 	g_aal_hist.serviceFlags = 0;
 	g_aal_hist_available = 0;
@@ -850,6 +860,88 @@ static int aal_ioctl(DISP_MODULE_ENUM module, void *handle,
 }
 #endif
 
+void disp_aal_set_ess_level_impl(int level, int need_kick)
+{
+#ifdef AAL_SUPPORT_KERNEL_API
+	unsigned long flags;
+	int level_command = 0;
+
+	spin_lock_irqsave(&g_aal_hist_lock, flags);
+
+	g_aal_ess_level_cmd_id += 1;
+	g_aal_ess_level_cmd_id = g_aal_ess_level_cmd_id % 64;
+	level_command = AAL_CONTROL_CMD(g_aal_ess_level_cmd_id, level);
+
+	g_aal_ess_level = level_command;
+
+	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
+
+	disp_aal_exit_idle("disp_aal_set_ess_level", need_kick);
+	disp_aal_set_interrupt(1);
+	disp_aal_trigger_refresh(AAL_REFRESH_17MS);
+	AAL_DBG("disp_aal_set_ess_level = %d (cmd = 0x%x)", level, level_command);
+#else
+	AAL_ERR("disp_aal_set_ess_level not support");
+#endif
+}
+
+void disp_aal_set_ess_level(int level)
+{
+	disp_aal_set_ess_level_impl(level, 1);
+}
+
+void disp_aal_set_ess_en(int enable)
+{
+#ifdef AAL_SUPPORT_KERNEL_API
+	unsigned long flags;
+	int enable_command = 0;
+	int level_command = 0;
+
+	spin_lock_irqsave(&g_aal_hist_lock, flags);
+
+	g_aal_ess_en_cmd_id += 1;
+	g_aal_ess_en_cmd_id = g_aal_ess_en_cmd_id % 64;
+	enable_command = AAL_CONTROL_CMD(g_aal_ess_en_cmd_id, enable);
+
+	g_aal_ess_en = enable_command;
+	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
+
+	disp_aal_exit_idle("disp_aal_set_ess_en", 1);
+	disp_aal_set_interrupt(1);
+	disp_aal_trigger_refresh(AAL_REFRESH_17MS);
+	AAL_DBG("disp_aal_set_ess_en = %d (cmd = 0x%x) level = 0x%08x (cmd = 0x%x)",
+		enable, enable_command, ESS_LEVEL_BY_CUSTOM_LIB, level_command);
+#else
+	AAL_ERR("disp_aal_set_ess_en not support");
+#endif
+}
+
+void disp_aal_set_dre_en(int enable)
+{
+#ifdef AAL_SUPPORT_KERNEL_API
+	unsigned long flags;
+	int enable_command = 0;
+
+	spin_lock_irqsave(&g_aal_hist_lock, flags);
+
+	g_aal_dre_en_cmd_id += 1;
+	g_aal_dre_en_cmd_id = g_aal_dre_en_cmd_id % 64;
+	enable_command = AAL_CONTROL_CMD(g_aal_dre_en_cmd_id, enable);
+
+	g_aal_dre_en = enable_command;
+
+	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
+
+	disp_aal_exit_idle("disp_aal_set_dre_en", 1);
+	disp_aal_set_interrupt(1);
+	disp_aal_trigger_refresh(AAL_REFRESH_17MS);
+	AAL_DBG("disp_aal_set_dre_en = %d (cmd = 0x%x)", enable, enable_command);
+#else
+	AAL_ERR("disp_aal_set_dre_en not support");
+#endif
+}
+
+
 static int aal_io(DISP_MODULE_ENUM module, int msg, unsigned long arg, void *cmdq)
 {
 	int ret = 0;
@@ -909,6 +1001,20 @@ static int aal_io(DISP_MODULE_ENUM module, int msg, unsigned long arg, void *cmd
 			}
 			break;
 		}
+#ifdef AMS_AAL_SUPPORT_KERNEL_API
+	case DISP_IOCTL_SET_SMARTBACKLIGHT:
+		{
+			int smart_ess_level;
+
+			if (copy_from_user(&smart_ess_level, (void *)arg, sizeof(smart_ess_level))) {
+				AAL_ERR("DISP_IOCTL_SET_SMARTBACKLIGHT: copy_from_user() failed");
+				return -EFAULT;
+			}
+
+			disp_aal_set_ess_level_impl(smart_ess_level, 0);
+			break;
+		}
+#endif
 	}
 
 	return ret;
@@ -1039,9 +1145,23 @@ void aal_test(const char *cmd, char *debug_output)
 		aal_bypass(AAL0_MODULE_NAMING, bypass);
 	} else if (strncmp(cmd, "ut:", 3) == 0) { /* debug command for UT */
 		aal_ut_cmd(cmd + 3);
+#ifdef AAL_SUPPORT_KERNEL_API
 	} else if (strncmp(cmd, "lcm_type:", 9) == 0) {
 		unsigned int panel_type = cmd[9] - '0';
 
 		disp_aal_set_lcm_type(panel_type);
+	} else if (strncmp(cmd, "set_ess_level:", 14) == 0) {
+		int level = cmd[14] - '0';
+
+		disp_aal_set_ess_level(level);
+	} else if (strncmp(cmd, "set_ess_en:", 11) == 0) {
+		int en = (cmd[11] == '1') ? 1 : 0;
+
+		disp_aal_set_ess_en(en);
+	} else if (strncmp(cmd, "set_dre_en:", 11) == 0) {
+		int en = (cmd[11] == '1') ? 1 : 0;
+
+		disp_aal_set_dre_en(en);
+#endif
 	}
 }

@@ -235,6 +235,7 @@ source "drivers/misc/mediatek/lens/Kconfig"
 source "drivers/misc/mediatek/mjc/Kconfig"
 source "drivers/misc/mediatek/mmp/Kconfig"
 source "drivers/misc/mediatek/multibridge/Kconfig"
+source "drivers/misc/mediatek/trusted_mem/Kconfig"
 source "drivers/misc/mediatek/sync/Kconfig"
 source "drivers/misc/mediatek/videocodec/Kconfig"
 source "drivers/misc/mediatek/video/Kconfig"
@@ -318,6 +319,7 @@ source "drivers/misc/mediatek/usb2jtag/Kconfig"
 source "drivers/misc/mediatek/usb_c/Kconfig"
 source "drivers/misc/mediatek/vibrator/Kconfig"
 source "drivers/misc/mediatek/xhci/Kconfig"
+
 
 endmenu  # Peripheral
 
@@ -423,6 +425,25 @@ config MTK_AB_OTA_UPDATER
 	bool "Support Android A/B system updates"
 	default n
 
+config MTK_GROUP_ENABLE_VERITY
+	bool "Support enable dm verity for grouped switch"
+	default y
+	select BLK_DEV_MD
+	select MD_LINEAR
+	select DM_ANDROID_VERITY
+	select KEYS
+	select INTEGRITY_SIGNATURES
+	select SYSTEM_TRUSTED_KEYRING
+	select DM_VERITY
+	select X509_CERTIFICATE_PARSER
+	select PUBLIC_KEY_ALGO_RSA
+	select ASYMMETRIC_KEY_TYPE
+	select ASYMMETRIC_PUBLIC_KEY_SUBTYPE
+
+config SYSTEM_AS_ROOT
+	bool "Support system-as-root, which merges ramdisk into system image"
+	default y
+
 source "drivers/misc/mediatek/aee/Kconfig"
 source "drivers/misc/mediatek/atf_log/Kconfig"
 source "drivers/misc/mediatek/boot/Kconfig"
@@ -440,12 +461,10 @@ source "drivers/misc/mediatek/mtprof/Kconfig"
 source "drivers/misc/mediatek/performance/Kconfig"
 source "drivers/misc/mediatek/ram_console/Kconfig"
 source "drivers/misc/mediatek/sched/Kconfig"
-source "drivers/misc/mediatek/secmem/Kconfig"
 source "drivers/misc/mediatek/selinux_warning/Kconfig"
 source "drivers/misc/mediatek/sysenv/Kconfig"
 source "drivers/misc/mediatek/teei/Kconfig"
 source "drivers/misc/mediatek/trustzone/Kconfig"
-source "drivers/misc/mediatek/vow/Kconfig"
 source "drivers/misc/mediatek/watchpoint/Kconfig"
 source "drivers/misc/mediatek/rt-regmap/Kconfig"
 

@@ -9,6 +9,5 @@ obj-$(CONFIG_MTK_BMI160_SPI)   +=  bmi160gy-spi/
 obj-$(CONFIG_MTK_ITG1010)   +=  ITG1010/
 obj-$(CONFIG_MTK_MPU6515G)	+= mpu6515/
 obj-$(CONFIG_MTK_MPU6050GY)   +=  mpu6050gy/
-obj-$(CONFIG_MTK_ICM20645GY)   +=  icm20645gy/
 obj-$(CONFIG_MTK_BMG160)    += bmg160/
 obj-$(CONFIG_MTK_BMI160GY_NEW)    += bmi160_gyro/

@@ -1058,6 +1058,12 @@ update_max_tr(struct trace_array *tr, struct task_struct *tsk, int cpu)
 
 	arch_spin_lock(&tr->max_lock);
 
+	/* Inherit the recordable setting from trace_buffer */
+	if (ring_buffer_record_is_set_on(tr->trace_buffer.buffer))
+		ring_buffer_record_on(tr->max_buffer.buffer);
+	else
+		ring_buffer_record_off(tr->max_buffer.buffer);
+
 	buf = tr->trace_buffer.buffer;
 	tr->trace_buffer.buffer = tr->max_buffer.buffer;
 	tr->max_buffer.buffer = buf;
@@ -5746,7 +5752,7 @@ tracing_buffers_splice_read(struct file *file, loff_t *ppos,
 		.spd_release	= buffer_spd_release,
 	};
 	struct buffer_ref *ref;
-	int entries, size, i;
+	int entries, i;
 	ssize_t ret = 0;
 
 	mutex_lock(&trace_types_lock);
@@ -5806,14 +5812,6 @@ tracing_buffers_splice_read(struct file *file, loff_t *ppos,
 			kfree(ref);
 			break;
 		}
-
-		/*
-		 * zero out any left over data, this is going to
-		 * user land.
-		 */
-		size = ring_buffer_page_len(ref->page);
-		if (size < PAGE_SIZE)
-			memset(ref->page + size, 0, PAGE_SIZE - size);
 
 		page = virt_to_page(ref->page);
 
@@ -6499,6 +6497,7 @@ allocate_trace_buffer(struct trace_array *tr, struct trace_buffer *buf, int size
 	buf->data = alloc_percpu(struct trace_array_cpu);
 	if (!buf->data) {
 		ring_buffer_free(buf->buffer);
+		buf->buffer = NULL;
 		return -ENOMEM;
 	}
 

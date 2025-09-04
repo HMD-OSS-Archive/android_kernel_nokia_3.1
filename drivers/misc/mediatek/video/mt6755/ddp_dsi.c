@@ -45,6 +45,7 @@
 #include "ddp_clkmgr.h"
 #endif
 
+#include "primary_display.h"
 
 #define DSI_OUTREG32(cmdq, addr, val) DISP_REG_SET(cmdq, addr, val)
 #define DSI_BACKUPREG32(cmdq, hSlot, idx, addr) DISP_REG_BACKUP(cmdq, hSlot, idx, addr)
@@ -1420,6 +1421,7 @@ void DSI_PHY_clk_setting(DISP_MODULE_ENUM module, cmdqRecHandle cmdq, LCM_DSI_PA
 				txdiv1 = 2;
 			} else {
 				DISPMSG("dataRate is too low(%d)\n", data_Rate);
+				ASSERT(0);
 			}
 
 			/* step 8 */
@@ -2658,16 +2660,18 @@ int DSI_Send_ROI(DISP_MODULE_ENUM module, void *handle, unsigned int x, unsigned
 	unsigned char y1_LSB = (y1 & 0xFF);
 
 	unsigned int data_array[16];
-
-	data_array[0] = 0x00053902;
-	data_array[1] = (x1_MSB << 24) | (x0_LSB << 16) | (x0_MSB << 8) | 0x2a;
-	data_array[2] = (x1_LSB);
-	DSI_set_cmdq(module, handle, data_array, 3, 1);
-	data_array[0] = 0x00053902;
-	data_array[1] = (y1_MSB << 24) | (y0_LSB << 16) | (y0_MSB << 8) | 0x2b;
-	data_array[2] = (y1_LSB);
-	DSI_set_cmdq(module, handle, data_array, 3, 1);
-	DISPDBG("DSI_Send_ROI Done!\n");
+	if (!primary_display_is_video_mode()) {
+		data_array[0] = 0x00053902;
+		data_array[1] = (x1_MSB << 24) | (x0_LSB << 16) | (x0_MSB << 8) | 0x2a;
+		data_array[2] = (x1_LSB);
+		DSI_set_cmdq(module, handle, data_array, 3, 1);
+		data_array[0] = 0x00053902;
+		data_array[1] = (y1_MSB << 24) | (y0_LSB << 16) | (y0_MSB << 8) | 0x2b;
+		data_array[2] = (y1_LSB);
+		DSI_set_cmdq(module, handle, data_array, 3, 1);
+		DISPDBG("DSI_Send_ROI Done!\n");
+	} else
+		DISPDBG("LCM is video mode, no need DSI send ROI!\n");
 
 	/* data_array[0]= 0x002c3909; */
 	/* DSI_set_cmdq(module, handle, data_array, 1, 0); */

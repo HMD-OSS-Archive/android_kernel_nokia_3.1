@@ -191,12 +191,12 @@ int string2hex(const char *buffer, int cnt)
 	return c;
 }
 
-char *get_hexbuffer(char *data_buffer, char *hex_buffer)
+char *get_hexbuffer(char *data_buffer, char *hex_buffer, int str_len)
 {
 	char *ptr = data_buffer;
 	int index = 0;
 
-	while (*ptr && *++ptr) {
+	while (*ptr && *++ptr && str_len--) {
 		*(hex_buffer + index++) = string2hex(ptr - 1, 2);
 		ptr++;
 	}
@@ -370,7 +370,7 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 					pr_err("alloc virtual memory failed\n");
 					goto err;
 				}
-				get_hexbuffer(data_buffer, vir_addr_wr);
+				get_hexbuffer(data_buffer, vir_addr_wr, length);
 				pr_alert("data_buffer:%s\n", data_buffer);
 
 
@@ -396,7 +396,7 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 					pr_err("alloc virtual memory failed\n");
 					goto err;
 				}
-				get_hexbuffer(data_buffer, vir_addr_wr);
+				get_hexbuffer(data_buffer, vir_addr_wr, length);
 				pr_alert("data_buffer:%s\n", data_buffer);
 			}
 
@@ -517,28 +517,24 @@ static struct platform_driver i2c_common_driver = {
 	.remove = i2c_common_remove,
 };
 
-#if 0
+
 /* platform device */
 static struct platform_device i2c_common_device = {
 	.name = "mt-iicd",
 };
-#endif
 
 static int __init xxx_init(void)
 {
-	int err = 0;
+	int err;
 
-#if 0
 	pr_alert("i2c_common device init\n");
 	err = platform_device_register(&i2c_common_device);
 	if (err)
 		return err;
-#endif
+
 	err = platform_driver_register(&i2c_common_driver);
-#if 0
 	if (err)
 		platform_device_unregister(&i2c_common_device);
-#endif
 
 	return err;
 }
@@ -546,7 +542,7 @@ static int __init xxx_init(void)
 static void __exit xxx_exit(void)
 {
 	platform_driver_unregister(&i2c_common_driver);
-	/* platform_device_unregister(&i2c_common_device); */
+	platform_device_unregister(&i2c_common_device);
 }
 module_init(xxx_init);
 module_exit(xxx_exit);

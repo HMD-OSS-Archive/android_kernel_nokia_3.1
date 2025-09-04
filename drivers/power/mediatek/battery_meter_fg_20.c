@@ -2989,26 +2989,20 @@ void bmr_construct_profile_init(void)
 		temp_profile_p =
 			(BATTERY_PROFILE_STRUCT_P) kmalloc(temp_profile_len * sizeof(*temp_profile_p), GFP_KERNEL);
 
-		if (temp_profile_p != NULL)
-			memset(temp_profile_p, 0, temp_profile_len * sizeof(*temp_profile_p));
-
+		if (temp_profile_p == NULL) {
+			bm_err("construct_profile_init temp_profile_p kmalloc fail!\n");
+			return;
+		}
+		memset(temp_profile_p, 0, temp_profile_len * sizeof(*temp_profile_p));
 		temp_r_profile_p =
 			(R_PROFILE_STRUCT_P) kmalloc(temp_profile_len * sizeof(*temp_r_profile_p), GFP_KERNEL);
 
 		if (temp_r_profile_p == NULL) {
-			bm_err("[bmr_construct_profile_init] temp_r_profile_p=NULL\n");
+			bm_err("construct_profile_init temp_r_profile_p kmalloc fail!\n");
 			kfree(temp_profile_p);
 			return;
 		}
-
-		if (temp_profile_p == NULL) {
-			bm_err("[bmr_construct_profile_init]temp_profile_p=NULL\n");
-			kfree(temp_r_profile_p);
-			return;
-		}
-
-		if (temp_r_profile_p != NULL)
-			memset(temp_r_profile_p, 0, temp_profile_len * sizeof(*temp_r_profile_p));
+		memset(temp_r_profile_p, 0, temp_profile_len * sizeof(*temp_r_profile_p));
 
 		for (j = 0; j*2 <= (profile_p[i] + saddles - 1)->percentage; j++) {
 			while (profile_index < saddles && profile_index >= 0) {
@@ -3048,13 +3042,11 @@ void bmr_construct_profile_init(void)
 
 		}
 
-		if (temp_r_profile_p != NULL) {
-			for (j = 0; j*2 <= 100; j++) {
-				(profile_p[i]+j)->voltage = (temp_profile_p + j)->voltage;
-				(profile_p[i]+j)->percentage = (temp_profile_p + j)->percentage;
-				(r_profile_p[i]+j)->voltage = (temp_r_profile_p + j)->voltage;
-				(r_profile_p[i]+j)->resistance = (temp_r_profile_p + j)->resistance;
-			}
+		for (j = 0; j*2 <= 100; j++) {
+			(profile_p[i]+j)->voltage = (temp_profile_p + j)->voltage;
+			(profile_p[i]+j)->percentage = (temp_profile_p + j)->percentage;
+			(r_profile_p[i]+j)->voltage = (temp_r_profile_p + j)->voltage;
+			(r_profile_p[i]+j)->resistance = (temp_r_profile_p + j)->resistance;
 		}
 
 		kfree(temp_profile_p);
@@ -3458,7 +3450,7 @@ void bmr_init(void)
 
 	fg_soc = 100 - fg_dod1;
 
-	bm_err("swocv:%d %d hwocv:%d %d rtc:%d chr:%d car:%d fg_dod0:%d fg_dod1:%d ui:%d\n",
+	bm_err("[bmr_init]swocv:%d %d hwocv:%d %d rtc:%d chr:%d car:%d fg_dod0:%d fg_dod1:%d ui:%d\n",
 		fg_swocv, fg_sw_soc,
 		fg_hwocv, fg_hw_soc,
 		fg_rtc_soc,
@@ -3467,6 +3459,8 @@ void bmr_init(void)
 		fg_dod0, fg_dod1, fg_uisoc);
 
 	bmr_uisoc_update_uisoc2();
+	if (!g_battery_soc_ready)
+		g_battery_soc_ready = KAL_TRUE;
 
 	BMT_status.UI_SOC2 = fg_uisoc2;
 	BMT_status.UI_SOC = fg_uisoc;
@@ -3534,7 +3528,23 @@ void bmr_avg_car_update(void)
 
 int bmr_get_smooth_time(void)
 {
-	return 60;
+	int left_car = 0;
+	int left_time = 0;
+	int car = 0;
+
+	left_car = fg_bat_capacity * fg_soc / 100;
+
+	if (fg_coulomb_act == 0)
+		car = 1;
+
+	if (car != 0)
+		left_time = left_car * 10 / car;
+
+	bm_err("bmr_get_smooth_time:%d %d %d %d %d\n",
+		fg_bat_capacity, fg_soc, car,
+		left_car, left_time);
+
+	return left_time * 10;
 }
 
 void bmr_run(int flow_state)
@@ -3618,7 +3628,7 @@ void bmr_run(int flow_state)
 		set_rtc_spare_fg_value(fg_uisoc2);
 	}
 
-	bm_err("soc:%d %d %d dod:%d %d car:%d cap:%d dt:%d %d\n",
+	bm_err("[bmr_run]soc:%d %d %d dod:%d %d car:%d cap:%d dt:%d %d\n",
 		fg_soc, fg_uisoc, fg_uisoc2,
 		fg_dod1, fg_dod0, fg_coulomb_act,
 		fg_bat_capacity, minus_time, plus_time);
@@ -4588,16 +4598,16 @@ static DEVICE_ATTR(FG_drv_force25c, 0664, show_FG_drv_force25c, store_FG_drv_for
 void battery_meter_set_fg_int(void)
 {
 #if defined(FG_BAT_INT)
-	battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_FG_CAR_ACT, &fg_bat_int_coulomb_pre);
-	bm_notice("[battery_meter_set_fg_int]fg_bat_int_coulomb_pre %d 1p:%d\n",
-		fg_bat_int_coulomb_pre,
-		batt_meter_cust_data.q_max_pos_25/100);
 	if (reset_fg_bat_int == KAL_TRUE) {
+		battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_FG_CAR_ACT, &fg_bat_int_coulomb_pre);
+		bm_notice("[battery_meter_set_fg_int]fg_bat_int_coulomb_pre %d 1p:%d\n",
+		fg_bat_int_coulomb_pre, batt_meter_cust_data.q_max_pos_25/100);
+
 		battery_meter_set_columb_interrupt(batt_meter_cust_data.q_max_pos_25/100);
 		reset_fg_bat_int = KAL_FALSE;
-		battery_log(BAT_LOG_CRTI, "battery_meter_set_fg_int\n");
+		battery_log(BAT_LOG_FULL, "battery_meter_set_fg_int\n");
 	} else {
-		battery_log(BAT_LOG_CRTI, "not battery_meter_set_fg_int\n");
+		battery_log(BAT_LOG_FULL, "not battery_meter_set_fg_int\n");
 	}
 #endif
 }

@@ -56,6 +56,12 @@ static char str_imei[32];
 static char str_imei2[32];
 static char str_pid[33];
 static char str_uicolor[20];
+static int wifimac_len = 20;
+static char str_wifimac[20];
+static int btmac_len = 20;
+static char str_btmac[20];
+static char *wifimac_preload = NULL;
+static char *btmac_preload = NULL;
 
 static char fih_emmc_info[20];
 static char fih_emmc_vendor[10];
@@ -93,7 +99,7 @@ static char fih_proc_test_result[FIH_PROC_SIZE] = {0};
 #define IMEI_SIZE        16
 #define IMEI_OFFSET (4096+4096+16) //E2P+CDA+BSET
 
-#define FQC_DEFAULT_PATH "system/etc/fqc_ds_ES2.xml"
+#define FQC_DEFAULT_PATH "vendor/etc/fqc_ds_ES2.xml"
 
 struct st_fih_mem {
 	unsigned int head;
@@ -1276,6 +1282,95 @@ static int skuid_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
+static int wifi_show(struct seq_file *s, void *unused)
+{
+	struct file *wifimac_filp = NULL;
+	mm_segment_t oldfs;
+	loff_t pos = 0;
+	int offset = 4;
+	wifimac_preload = kmalloc(sizeof(char)*wifimac_len, GFP_KERNEL);
+
+	printk("[%s] enter!!\n",__func__);
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	wifimac_filp = filp_open(wifimac_BLOCK, O_RDONLY, 0);
+
+	if(!IS_ERR(wifimac_filp))
+	{
+		if (wifimac_filp->f_pos != offset) {
+			if (wifimac_filp->f_op->llseek) {
+				if (wifimac_filp->f_op->llseek(wifimac_filp, offset, 0) != offset) {
+						printk("[%s]nvram_read : failed to seek!!\n",__func__);
+				}
+			} else {
+				wifimac_filp->f_pos = offset;
+			}
+		}
+
+		pos = (loff_t)offset;
+		vfs_read(wifimac_filp, (char __user *)wifimac_preload, sizeof(char)*wifimac_len, &pos);
+		filp_close(wifimac_filp, NULL);
+		seq_printf(s, "%x:",(int)wifimac_preload[0]);
+		seq_printf(s, "%x:",(int)wifimac_preload[1]);
+		seq_printf(s, "%x:",(int)wifimac_preload[2]);
+		seq_printf(s, "%x:",(int)wifimac_preload[3]);
+		seq_printf(s, "%x:",(int)wifimac_preload[4]);
+		seq_printf(s, "%x",(int)wifimac_preload[5]);
+	}
+	else
+	{
+		printk("[%s]open %s fail\n", __func__,wifimac_BLOCK);
+	}
+
+	set_fs(oldfs);
+
+	kfree(wifimac_preload);
+	return 0;
+}
+
+static int bt_mac_show(struct seq_file *s, void *unused)
+{
+	struct file *btmac_filp = NULL;
+	mm_segment_t oldfs;
+	loff_t pos = 0;
+	int offset = 0;
+	btmac_preload = kmalloc(sizeof(char)*btmac_len, GFP_KERNEL);
+
+	printk("[%s] enter\n",__func__);
+
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	btmac_filp = filp_open(btmac_BLOCK, O_RDONLY, 0);
+
+	if(!IS_ERR(btmac_filp))
+	{
+		if (btmac_filp->f_pos != offset) {
+			if (btmac_filp->f_op->llseek) {
+				if (btmac_filp->f_op->llseek(btmac_filp, offset, 0) != offset) {
+						printk("[%s]nvram_read : failed to seek!!\n",__func__);
+				}
+			} else {
+				btmac_filp->f_pos = offset;
+			}
+		}
+
+		pos = (loff_t)offset;
+		vfs_read(btmac_filp, (char __user *)btmac_preload, sizeof(char)*btmac_len, &pos);
+		filp_close(btmac_filp, NULL);
+		seq_printf(s,"%02x:%02x:%02x:%02x:%02x:%02x\n",
+				btmac_preload[0], btmac_preload[1], btmac_preload[2],
+				btmac_preload[3], btmac_preload[4], btmac_preload[5]);
+	}
+	else
+	{
+		printk("[%s]open %s fail\n", __func__,btmac_BLOCK);
+	}
+
+	set_fs(oldfs);
+
+	kfree(btmac_preload);
+	return 0;
+}
 
 static int baseband_open(struct inode *inode, struct file *file)
 {
@@ -1454,6 +1549,15 @@ static int skuid_open(struct inode *inode, struct file *file)
 	return single_open(file, skuid_show, &inode->i_private);
 }
 
+static int wifi_open(struct inode *inode, struct file *file)
+{
+        return single_open(file, wifi_show, &inode->i_private);
+}
+
+static int bt_mac_open(struct inode *inode, struct file *file)
+{
+        return single_open(file, bt_mac_show, &inode->i_private);
+}
 
 static const struct file_operations fver_fops = {
         .open        = fver_open,
@@ -1731,6 +1835,20 @@ static const struct file_operations skuid_fops = {
         .release     = single_release,
 };
 
+static const struct file_operations wifi_fops = {
+        .open        = wifi_open,
+        .read        = seq_read,
+        .llseek      = seq_lseek,
+        .release     = single_release,
+};
+
+static const struct file_operations bt_mac_fops = {
+		.open            =  bt_mac_open,
+		.read            =  seq_read,
+		.llseek          =  seq_lseek,
+		.release         =  single_release,
+};
+
 static int dec2hex_under100(int num_dec)
 {
 	int num_hex = 0;
@@ -1926,7 +2044,8 @@ static int __init proc_info_module_init(void)
 	kthread_run(fih_read_hwid_info, NULL, "fih_read_hwid_info");
 	//fih_read_hwid_info();
 
-	entry = proc_create(FVER_PROC, S_IFREG | S_IRUGO, NULL, &fver_fops);
+
+	entry = proc_create(FVER_PROC, 0777, NULL, &fver_fops);
 	if(entry == NULL)
 		printk("[dw]creat proc %s fail\n", FVER_PROC);
 	fver_preload = kmalloc(sizeof(char)*fver_len, GFP_KERNEL);
@@ -2068,6 +2187,10 @@ static int __init proc_info_module_init(void)
 	if(entry == NULL)
 		printk("creat proc %s fail\n", SIM_CARD_SLOT_PROC);
 
+        entry = proc_create("SIMSlot", S_IFREG | S_IRUGO, NULL, &sim_card_slot_fops);
+        if(entry == NULL)
+                printk("creat proc %s fail\n", SIM_CARD_SLOT_PROC);
+
 	entry = proc_create(BANDINFO, S_IFREG | S_IRUGO, NULL, &bandinfo_fops);
 	if(entry == NULL)
 		printk("creat proc %s fail\n", BANDINFO);
@@ -2095,6 +2218,14 @@ static int __init proc_info_module_init(void)
 	entry = proc_create(SKUID_PROC, S_IFREG | S_IRUGO, NULL, &skuid_fops);
 	if(entry == NULL)
 		printk("creat proc %s fail\n", SKUID_PROC);
+
+	entry = proc_create(WIFI_MAC, 0777, NULL, &wifi_fops);
+	if(entry == NULL)
+		printk("[dw]creat proc %s fail\n", WIFI_MAC);
+
+	entry = proc_create(BT_MAC, 0777, NULL, &bt_mac_fops);
+	if(entry == NULL)
+		printk("create proc %s fail\n", BT_MAC);
 
 	return 0;
 }

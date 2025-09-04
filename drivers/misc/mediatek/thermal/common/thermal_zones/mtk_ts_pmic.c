@@ -251,7 +251,7 @@ static int tspmic_sysrst_set_cur_state(struct thermal_cooling_device *cdev, unsi
 		mtktspmic_info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 
 /* BUG(); */
-		*(unsigned int *)0x0 = 0xdead;	/* To trigger data abort to reset the system for thermal protection. */
+		BUG();	/* To trigger data abort to reset the system for thermal protection. */
 		/* arch_reset(0,NULL); */
 	}
 	return 0;

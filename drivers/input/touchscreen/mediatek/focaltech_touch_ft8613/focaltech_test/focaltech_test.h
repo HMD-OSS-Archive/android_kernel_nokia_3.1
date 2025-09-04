@@ -37,7 +37,7 @@
 * Macro definitions using #define
 *****************************************************************************/
 #define IC_TEST_VERSION                 "V2.0.0 20170811"
-#define FTS_INI_FILE_PATH           "/vendor/etc/"   // Define the configuration file storage directory
+#define FTS_INI_FILE_PATH           	""   // Define the configuration file storage directory
 #define FTS_RESULT_FILE_PATH           "/sdcard/rawdata/"   // Define the configuration file storage directory
 #define false 0
 #define true  1

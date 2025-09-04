@@ -758,6 +758,34 @@ int m4u_alloc_mva_sg(int eModuleID,
 	return m4u_alloc_mva(ion_m4u_client, eModuleID, 0, sg_table, BufSize, prot, 0, pRetMVABuf);
 }
 
+int m4u_alloc_mva_by_va(struct port_info *info, struct sg_table *table)
+{
+	int prot;
+	int ret;
+	unsigned int flags = 0;
+
+	if (!ion_m4u_client) {
+		ion_m4u_client = m4u_create_client();
+		if (IS_ERR_OR_NULL(ion_m4u_client)) {
+			ion_m4u_client = NULL;
+			return -1;
+		}
+	}
+
+	prot = M4U_PROT_READ | M4U_PROT_WRITE |
+		(info->cache_coherent ? (M4U_PROT_SHARE | M4U_PROT_CACHE) : 0) |
+		(info->security ? M4U_PROT_SEC : 0);
+
+	if (info->flags & M4U_FLAGS_SG_READY)
+		flags |= M4U_FLAGS_SG_READY;
+	else
+		info->va = 0;
+
+	ret = m4u_alloc_mva(ion_m4u_client, info->eModuleID, info->va, table,
+			    info->BufSize, prot, flags, &info->mva);
+	return ret;
+}
+
 #ifdef M4U_TEE_SERVICE_ENABLE
 static int m4u_unmap_nonsec_buffer(unsigned int mva, unsigned int size);
 

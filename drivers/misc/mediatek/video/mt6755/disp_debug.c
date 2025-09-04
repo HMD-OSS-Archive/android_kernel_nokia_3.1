@@ -926,9 +926,11 @@ static ssize_t lp_cust_write(struct file *file, const char __user *ubuf, size_t 
 	if (copy_from_user(&cmd_buf, ubuf, count))
 		return -EFAULT;
 
-	cmd_buf[count] = 0;
-
-	lp_cust_process_dbg_cmd(cmd_buf);
+	cmd_buf[count] = '\0';
+	if (strlen(cmd_buf))
+		lp_cust_process_dbg_cmd(cmd_buf);
+	else
+		return -EFAULT;
 
 	return ret;
 }

@@ -72,7 +72,7 @@ static int sysrst_cpu_set_cur_state(struct thermal_cooling_device *cdev, unsigne
 #ifndef CONFIG_ARM64
 		BUG();
 #else
-		*(unsigned int *)0x0 = 0xdead;	/* To trigger data abort to reset the system for thermal protection. */
+		BUG();	/* To trigger data abort to reset the system for thermal protection. */
 #endif
 
 	}
@@ -106,7 +106,7 @@ static int sysrst_buck_set_cur_state(struct thermal_cooling_device *cdev, unsign
 #ifndef CONFIG_ARM64
 		BUG();
 #else
-		*(unsigned int *)0x0 = 0xdead;	/* To trigger data abort to reset the system for thermal protection. */
+		BUG();	/* To trigger data abort to reset the system for thermal protection. */
 #endif
 
 	}
@@ -143,7 +143,7 @@ static int sysrst_tsap_set_cur_state(struct thermal_cooling_device *cdev, unsign
 #ifndef CONFIG_ARM64
 		BUG();
 #else
-		*(unsigned int *)0x0 = 0xdead;	/* To trigger data abort to reset the system for thermal protection. */
+		BUG();	/* To trigger data abort to reset the system for thermal protection. */
 #endif
 
 	}

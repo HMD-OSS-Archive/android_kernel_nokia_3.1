@@ -36,7 +36,6 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
-#include "kd_flashlight_type.h"
 #include <linux/cdev.h>
 #include <linux/errno.h>
 #include <linux/time.h>
@@ -50,6 +49,7 @@
 #include <linux/compat.h>
 #endif
 #include "kd_flashlight.h"
+#include "kd_flashlight_type.h"
 #include <mach/mt_pbm.h>
 
 

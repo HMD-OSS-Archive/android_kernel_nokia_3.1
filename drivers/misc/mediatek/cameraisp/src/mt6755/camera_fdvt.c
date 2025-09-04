@@ -462,8 +462,13 @@ static int MT6573FDVT_SetRegHW(MT6573FDVTRegIO *a_pstCfg)
 
 	pREGIO = (MT6573FDVTRegIO *)a_pstCfg;
 
-	if (pREGIO->u4Count > MT6573FDVT_DBUFFREGCNT) {
+	if (pREGIO->u4Count > MT6573FDVT_DBUFFREGCNT || pREGIO->u4Count == 0) {
 		LOG_DBG("Buffer Size Exceeded!\n");
+		return -EFAULT;
+	}
+
+	if (pREGIO->pData == NULL) {
+		LOG_DBG("SetRegHW pREGIO->pData is NULL\n");
 		return -EFAULT;
 	}
 
@@ -481,13 +486,14 @@ static int MT6573FDVT_SetRegHW(MT6573FDVTRegIO *a_pstCfg)
 	/* LOG_DBG("Count = %d\n", pREGIO->u4Count); */
 
 	for (i = 0; i < pREGIO->u4Count; i++) {
-		if ((FDVT_ADDR + pMT6573FDVTWRBuff.u4Addr[i]) >= FDVT_ADDR &&
+		if ((FDVT_ADDR + pMT6573FDVTWRBuff.u4Addr[i]) >= FDVT_ENABLE &&
 			(FDVT_ADDR + pMT6573FDVTWRBuff.u4Addr[i]) <= (FDVT_ADDR + FDVT_MAX_OFFSET)) {
 			/* LOG_DBG("write addr = 0x%08x, data = 0x%08x\n", FDVT_ADDR + pMT6573FDVTWRBuff.u4Addr[i],
 			pMT6573FDVTWRBuff.u4Data[i]); */
 			FDVT_WR32(pMT6573FDVTWRBuff.u4Data[i], FDVT_ADDR + pMT6573FDVTWRBuff.u4Addr[i]);
 		} else {
 			LOG_ERR("ERROR: Writing Memory(0x%lx) Excess FDVT Range!\n", FDVT_ADDR + pMT6573FDVTWRBuff.u4Addr[i]);
+			return -EFAULT;
 		}
 	}
 
@@ -507,8 +513,13 @@ static int MT6573FDVT_ReadRegHW(MT6573FDVTRegIO *a_pstCfg)
 		return -EINVAL;
 	}
 
-	if (a_pstCfg->u4Count > MT6573FDVT_DBUFFREGCNT) {
+	if (a_pstCfg->u4Count > MT6573FDVT_DBUFFREGCNT || a_pstCfg->u4Count == 0) {
 		LOG_DBG("Buffer Size Exceeded!\n");
+		return -EFAULT;
+	}
+
+	if (a_pstCfg->pData == NULL) {
+		LOG_DBG("ReadRegHW a_pstCfg->pData == NULL\n");
 		return -EFAULT;
 	}
 
@@ -630,14 +641,24 @@ static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case MT6573FDVTIOC_T_SET_FDCONF_CMD:
 		/* LOG_DBG("[FDVT] MT6573FDVT set FD config\n"); */
 		FaceDetecteConfig();  /* LDVT Disable, Due to the different feature number between FD/SD/BD/REC */
-		MT6573FDVT_SetRegHW((MT6573FDVTRegIO *)pBuff);
-		haveConfig = 1;
+		ret = MT6573FDVT_SetRegHW((MT6573FDVTRegIO *)pBuff);
+		if (ret == 0)
+			haveConfig = 1;
+		else {
+			haveConfig = 0;
+			LOG_DBG("Set FD HW register fail\n");
+		}
 		break;
 	case MT6573FDVTIOC_T_SET_SDCONF_CMD:
 		/* LOG_DBG("[FDVT] MT6573FDVT set SD config\n"); */
 		SmileDetecteConfig();
-		MT6573FDVT_SetRegHW((MT6573FDVTRegIO *)pBuff);
-		haveConfig = 1;
+		ret = MT6573FDVT_SetRegHW((MT6573FDVTRegIO *)pBuff);
+		if (ret == 0)
+			haveConfig = 1;
+		else {
+			haveConfig = 0;
+			LOG_DBG("Set SD HW register fail\n");
+		}
 		break;
 	case MT6573FDVTIOC_G_READ_FDREG_CMD:
 		/* LOG_DBG("[FDVT] MT6573FDVT read FD config\n"); */

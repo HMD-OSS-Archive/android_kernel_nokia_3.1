@@ -68,7 +68,8 @@ static bool usb_enable_clock(bool enable)
 #ifdef CONFIG_MTK_CLKMGR
 		enable_clock(MT_CG_PERI_USB0, "USB30");
 #else
-		clk_enable(musb_clk);
+		if (clk_enable(musb_clk) != 0)
+			pr_err("usb_enable_clock failed...\n");
 #endif
 	} else {
 #ifdef CONFIG_MTK_CLKMGR

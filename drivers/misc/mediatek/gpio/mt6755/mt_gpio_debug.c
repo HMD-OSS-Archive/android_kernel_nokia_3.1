@@ -738,7 +738,7 @@ ssize_t mt_gpio_store_pin(struct device *dev, struct device_attribute *attr,
 		GPIOMSG("echo -wies num x > pin  #x: 1,ies enable; 0 ies disable\n");
 		GPIOMSG("echo -wdir num x > pin  #x: 1, output; 0, input\n");
 		/*GPIOMSG("echo -wdinv num x > pin #x: 1, inversion enable; 0, disable\n"); */
-		GPIOMSG("echo -w=num x x x x x x x > pin #set all property one time\n");
+		GPIOMSG("echo -w=num x x x x x x > pin #set all property one time\n");
 		GPIOMSG("PIN: [MODE] [PSEL] [DIN] [DOUT] [PEN] [DIR] [IES]\n");
 	} else if (!strncmp(buf, "-r0", 3) && (1 == sscanf(buf + 3, "%d", &pin))) {
 		GPIO_CFG cfg = {.no = pin };

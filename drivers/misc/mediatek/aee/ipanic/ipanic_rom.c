@@ -558,9 +558,6 @@ int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 	ipanic_mrdump_once_control(AEE_REBOOT_MODE_KERNEL_PANIC, &saved_regs, "Kernel Panic");
 	spin_lock_irq(&ipanic_lock);
 	aee_disable_api();
-#ifndef CONFIG_DEBUG_BUGVERBOSE
-	dump_stack();
-#endif
 	mrdump_mini_ke_cpu_regs(NULL);
 	__inner_flush_dcache_all();
 	if (!has_mt_dump_support())
@@ -641,7 +638,7 @@ void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs, int cp
 	cpu_proc_fin();
 #endif
 	mrdump_mini_ke_cpu_regs(excp_regs);
-	mrdump_mini_per_cpu_regs(cpu, regs);
+	mrdump_mini_per_cpu_regs(cpu, regs, current);
 	__inner_flush_dcache_all();
 	if (!has_mt_dump_support())
 		emergency_restart();

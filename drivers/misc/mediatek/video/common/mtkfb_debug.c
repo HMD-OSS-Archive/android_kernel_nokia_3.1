@@ -178,9 +178,11 @@ static ssize_t ddp_debug_write(struct file *file, const char __user *ubuf, size_
 	if (copy_from_user(&cmd_buf, ubuf, count))
 		return -EFAULT;
 
-	cmd_buf[count] = 0;
-
-	ddp_process_dbg_cmd(cmd_buf);
+	cmd_buf[count] = '\0';
+	if (strlen(cmd_buf))
+		ddp_process_dbg_cmd(cmd_buf);
+	else
+		return -EFAULT;
 
 	return ret;
 }
@@ -481,9 +483,11 @@ static ssize_t mtkfb_debug_write(struct file *file, const char __user *ubuf, siz
 	if (copy_from_user(debug_buffer, ubuf, count))
 		return -EFAULT;
 
-	debug_buffer[count] = 0;
-
-	mtkfb_process_dbg_cmd(debug_buffer);
+	debug_buffer[count] = '\0';
+	if (strlen(debug_buffer))
+		mtkfb_process_dbg_cmd(debug_buffer);
+	else
+		return -EFAULT;
 
 out:
 	return ret;

@@ -155,10 +155,10 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_CHARGE_ENABLED,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
-	/* Add for battery voltage/temp */
-	POWER_SUPPLY_PROP_batt_vol,
 	/*Jason: BAT_ID*/
 	POWER_SUPPLY_PROP_bat_id,
+	/* Add for battery voltage/temp */
+	POWER_SUPPLY_PROP_batt_vol,
 	POWER_SUPPLY_PROP_bat_id_volt,
 	POWER_SUPPLY_PROP_batt_temp,
 	/* Add for EM */

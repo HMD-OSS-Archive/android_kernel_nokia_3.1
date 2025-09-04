@@ -41,6 +41,7 @@
 #endif
 #include <linux/wakelock.h>
 #include "focaltech_core.h"
+#include "fih_touch.h"
 
 /*****************************************************************************
 * Private constant and macro definitions using #define
@@ -74,6 +75,14 @@ static int tpd_remove(struct i2c_client *client);
 static void tpd_resume(struct device *h);
 static void tpd_suspend(struct device *h);
 static void fts_release_all_finger(void);
+
+extern struct fih_touch_cb touch_cb;
+extern int tp_probe_success;
+extern int32_t fih_fct_selftest_open(const char *buf, size_t count);
+extern int fih_touch_proc_init(void);
+extern int fih_fct_tpfwver_read(char *);
+extern int touch_double_tap_read_fct(char *buf);
+extern int touch_double_tap_write_fct(int enable);
 
 /*****************************************************************************
 * Focaltech ts i2c driver configuration
@@ -973,6 +982,14 @@ static int tpd_probe(struct i2c_client *client, const struct i2c_device_id *id)
         FTS_ERROR("init fw upgrade fail");
     }
 #endif
+
+    tp_probe_success = 1;
+    fih_touch_proc_init();
+    touch_cb.touch_selftest = fih_fct_selftest_open;
+    touch_cb.touch_selftest_result = NULL;
+    touch_cb.touch_tpfwver_read = fih_fct_tpfwver_read;
+    touch_cb.touch_double_tap_read = touch_double_tap_read_fct;
+    touch_cb.touch_double_tap_write = touch_double_tap_write_fct;
 
     tpd_load_status = 1;
     FTS_DEBUG("TPD_RES_Y:%d", (int)TPD_RES_Y);

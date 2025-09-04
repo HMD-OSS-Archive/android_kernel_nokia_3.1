@@ -43,17 +43,7 @@
  */
 
 #define AUDIO_IPI_DEVICE_NAME "audio_ipi"
-#define AUDIO_IPI_IOC_MAGIC 'i'
 
-#define AUDIO_IPI_IOCTL_SEND_MSG_ONLY _IOW(AUDIO_IPI_IOC_MAGIC, 0, unsigned int)
-#define AUDIO_IPI_IOCTL_SEND_PAYLOAD  _IOW(AUDIO_IPI_IOC_MAGIC, 1, unsigned int)
-#define AUDIO_IPI_IOCTL_SEND_DRAM     _IOW(AUDIO_IPI_IOC_MAGIC, 2, unsigned int)
-
-#define AUDIO_IPI_IOCTL_LOAD_SCENE    _IOW(AUDIO_IPI_IOC_MAGIC, 10, unsigned int)
-
-#define AUDIO_IPI_IOCTL_DUMP_PCM      _IOW(AUDIO_IPI_IOC_MAGIC, 97, unsigned int)
-#define AUDIO_IPI_IOCTL_REG_FEATURE   _IOW(AUDIO_IPI_IOC_MAGIC, 98, unsigned int)
-#define AUDIO_IPI_IOCTL_SPM_MDSRC_ON  _IOW(AUDIO_IPI_IOC_MAGIC, 99, unsigned int)
 
 /*
  * =============================================================================

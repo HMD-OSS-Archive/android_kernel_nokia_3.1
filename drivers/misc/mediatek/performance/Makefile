@@ -14,6 +14,7 @@
 obj-y += fliper/
 obj-y += perfmgr/
 obj-y += legacy_controller/
+obj-y += cpu_loading/
 
 ifneq ($(CONFIG_MTK_PERFMGR_TOUCH_BOOST),y)
 obj-$(CONFIG_ARCH_MT6735) += perf_ioctl/

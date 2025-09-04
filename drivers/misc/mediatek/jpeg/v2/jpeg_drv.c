@@ -790,12 +790,12 @@ static int jpeg_enc_ioctl(unsigned int cmd, unsigned long arg, struct file *file
 	case JPEG_ENC_IOCTL_CONFIG:
 		/*JPEG_MSG("[JPEGDRV][IOCTL] JPEG Encoder Configure Hardware\n");*/
 		if (*pStatus != JPEG_ENC_PROCESS) {
-			JPEG_WRN_LIMIT("Permission Denied! This process can not access encoder");
+			JPEG_WRN("Permission Denied! This process can not access encoder");
 			return -EFAULT;
 		}
 
 		if (enc_status == 0) {
-			JPEG_WRN_LIMIT("Encoder status is available, HOW COULD THIS HAPPEN ??");
+			JPEG_WRN("Encoder status is available, HOW COULD THIS HAPPEN ??");
 			*pStatus = 0;
 			return -EFAULT;
 		}
@@ -897,11 +897,11 @@ static int jpeg_enc_ioctl(unsigned int cmd, unsigned long arg, struct file *file
 	case JPEG_ENC_IOCTL_START:
 		/*JPEG_MSG("[JPEGDRV][IOCTL] JPEG Encoder Start!!\n");*/
 		if (*pStatus != JPEG_ENC_PROCESS) {
-			JPEG_WRN_LIMIT("Permission Denied! This process can not access encoder");
+			JPEG_WRN("Permission Denied! This process can not access encoder");
 			return -EFAULT;
 		}
 		if (enc_status == 0 || enc_ready == 0) {
-			JPEG_WRN_LIMIT("Encoder status is unavailable, HOW COULD THIS HAPPEN ??");
+			JPEG_WRN("Encoder status is unavailable, HOW COULD THIS HAPPEN ??");
 			*pStatus = 0;
 			return -EFAULT;
 		}
@@ -911,11 +911,11 @@ static int jpeg_enc_ioctl(unsigned int cmd, unsigned long arg, struct file *file
 	case JPEG_ENC_IOCTL_WAIT:
 		/*JPEG_MSG("[JPEGDRV][IOCTL] JPEG Encoder Wait!!\n");*/
 		if (*pStatus != JPEG_ENC_PROCESS) {
-			JPEG_WRN_LIMIT("Permission Denied! This process can not access encoder");
+			JPEG_WRN("Permission Denied! This process can not access encoder");
 			return -EFAULT;
 		}
 		if (enc_status == 0 || enc_ready == 0) {
-			JPEG_WRN_LIMIT("Encoder status is unavailable, HOW COULD THIS HAPPEN ??");
+			JPEG_WRN("Encoder status is unavailable, HOW COULD THIS HAPPEN ??");
 			*pStatus = 0;
 			return -EFAULT;
 		}
@@ -988,12 +988,12 @@ static int jpeg_enc_ioctl(unsigned int cmd, unsigned long arg, struct file *file
 		/*JPEG_MSG("[JPEGDRV][IOCTL] JPEG Encoder Deinit!!\n");*/
 		/* copy input parameters */
 		if (*pStatus != JPEG_ENC_PROCESS) {
-			JPEG_WRN_LIMIT("Permission Denied! This process can not access encoder");
+			JPEG_WRN("Permission Denied! This process can not access encoder");
 			return -EFAULT;
 		}
 
 		if (enc_status == 0) {
-			JPEG_WRN_LIMIT("Encoder status is available, HOW COULD THIS HAPPEN ??");
+			JPEG_WRN("Encoder status is available, HOW COULD THIS HAPPEN ??");
 			*pStatus = 0;
 			return -EFAULT;
 		}

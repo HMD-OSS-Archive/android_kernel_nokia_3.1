@@ -34,8 +34,6 @@
 
 #define MSDC_WQ_ERROR_TUNE
 
-#define MTK_EMMC_CMD_DEBUG
-
 #define MSDC_AUTOK_ON_ERROR
 #ifdef MSDC_AUTOK_ON_ERROR
 /*#define DATA_TUNE_READ_DATA_ALLOW_FALLING_EDGE*/
@@ -379,7 +377,7 @@ struct msdc_host {
 	u32                     dma_xfer_size;  /* dma transfer size in bytes */
 	int                     dma_xfer;       /* dma transfer mode */
 
-	u32                     write_timeout_ms; /* write busy timeout ms */
+	u32                     data_timeout_ms; /* busy timeout ms */
 	u32                     timeout_ns;     /* data timeout ns */
 	u32                     timeout_clks;   /* data timeout clks */
 
@@ -443,7 +441,7 @@ struct msdc_host {
 	struct msdc_saved_para  saved_para;
 	struct wakeup_source    trans_lock;
 	bool                    block_bad_card;
-	struct delayed_work     write_timeout;  /* check if write busy timeout*/
+	struct delayed_work     data_timeout;  /* check if data busy timeout*/
 #ifdef SDIO_ERROR_BYPASS
 	int                     sdio_error;     /* sdio error can't recovery */
 #endif
@@ -709,9 +707,7 @@ enum {
 	ENABLE_AXI_MODULE = 26,
 	SDIO_AUTOK_RESULT = 27,
 	DO_AUTOK_OFFLINE_TUNE_TX = 29,
-	MMC_CMDQ_STATUS = 30,
-	/* for DB dump, do not change index */
-	MMC_HANG_DETECT_DUMP = 256,
+	MMC_CMDQ_STATUS = 30
 };
 
 enum {
@@ -719,20 +715,6 @@ enum {
 	MODE_DMA = 1,
 	MODE_SIZE_DEP = 2,
 };
-
-#define SPREAD_PRINTF(buff, size, fmt, args...) \
-do { \
-	if (buff && size && *(size)) { \
-		unsigned long var = snprintf(*(buff), *(size), fmt, ##args); \
-		if (var > 0) { \
-			*(size) -= var; \
-			*(buff) += var; \
-		} \
-	} \
-	if (!buff) { \
-		pr_info(fmt, ##args); \
-	} \
-} while (0)
 
 /* Variable declared in dbg.c */
 extern u32 msdc_host_mode[];

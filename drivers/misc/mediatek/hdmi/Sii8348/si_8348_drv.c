@@ -4120,15 +4120,13 @@ extern enum HDMI_CABLE_TYPE MHL_Connect_type;
 extern enum HDMI_STATE hdmi_drv_get_state(void);
 void si_mhl_tx_drv_video_3d_update(struct mhl_dev_context *dev_context, int video_3d)
 {
-	vendor_specific_info_frame_t vsif;
-	struct drv_hw_context *hw_context = (struct drv_hw_context *)&dev_context->drv_context;
-	static unsigned long long old_time;
+    vendor_specific_info_frame_t vsif;	
+    struct drv_hw_context *hw_context = (struct drv_hw_context *)&dev_context->drv_context;
+    static unsigned long long old_time = 0;
 
-	MHL_TX_DBG_INFO((struct drv_hw_context *) (&dev_context->drv_context),
-		"Input Timing Update to: video 3D configuration changed-%d, cable type: %d\n",
-		video_3d, MHL_Connect_type);
-	if (MHL_Connect_type != MHL_3D_GLASSES)
-		stop_video(hw_context);
+    MHL_TX_DBG_INFO((struct drv_hw_context *) (&dev_context->drv_context), "Input Timing Update to: video 3D configuration changed-%d, cable type: %d\n", video_3d, MHL_Connect_type);
+    if(MHL_Connect_type != MHL_3D_GLASSES)
+        stop_video(hw_context);
     
 	memset( &vsif, 0, sizeof(vendor_specific_info_frame_t) );
 

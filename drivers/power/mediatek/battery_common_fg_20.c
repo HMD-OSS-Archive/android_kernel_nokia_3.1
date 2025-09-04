@@ -315,6 +315,8 @@ struct battery_data {
 	/* Add for Battery Service */
 	int BAT_batt_vol;
 	int BAT_batt_temp;
+	int charge_full_design;
+	int bat_id;
 	/* Add for EM */
 	int BAT_TemperatureR;
 	int BAT_TempBattVoltage;
@@ -329,8 +331,6 @@ struct battery_data {
 	int capacity_smb;
 	int present_smb;
 	int adjust_power;
-	int charge_full_design;
-	int bat_id;
 	int bat_id_volt;
 };
 
@@ -356,11 +356,18 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
-	POWER_SUPPLY_PROP_CURRENT_MAX,
+	/*battery voltage*/
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
+	POWER_SUPPLY_PROP_CHARGE_AVG,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_bat_id,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	/* Add for Battery Service */
 	POWER_SUPPLY_PROP_batt_vol,
 	POWER_SUPPLY_PROP_batt_temp,
@@ -378,8 +385,6 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_present_smb,
 	/* ADB CMD Discharging */
 	POWER_SUPPLY_PROP_adjust_power,
-	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
-	POWER_SUPPLY_PROP_bat_id,
 	POWER_SUPPLY_PROP_bat_id_volt,
 };
 
@@ -687,13 +692,13 @@ static int battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = data->BAT_CAPACITY;
 		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		val->intval = data->BAT_batt_temp;
+		break;
 	case POWER_SUPPLY_PROP_batt_vol:
 		val->intval = data->BAT_batt_vol * 1000;
 		break;
 	case POWER_SUPPLY_PROP_batt_temp:
-		val->intval = data->BAT_batt_temp;
-		break;
-	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = data->BAT_batt_temp;
 		break;
 	case POWER_SUPPLY_PROP_TemperatureR:
@@ -718,21 +723,39 @@ static int battery_get_property(struct power_supply *psy,
 		val->intval = data->BAT_ChargerVoltage;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval = data->BAT_CURRENT_NOW; /* charge_current */
+		val->intval = data->BAT_CURRENT_NOW;
+		/* charge_current */
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = data->BAT_batt_vol * 1000;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		val->intval = CHARGE_CURRENT_2000_00_MA * 10;
+		val->intval = 3000000;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		val->intval = BATTERY_VOLT_04_400000_V;
+		val->intval = 5000000;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		//val->intval = battery_meter_get_QMAX25() * 1000;
 		val->intval = data->BAT_CAPACITY * 2900 * 1000 / 100;
-		/* QMAX from battery, ma to ua */
+		/* remaining capacity,uah , (ui*qmax*1000/100)*/
+		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		val->intval = 0;
+		/*battery cycle return 0  */
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_AVG:
+		val->intval = data->BAT_CURRENT_NOW; /* charge_current */
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = battery_meter_get_QMAX25() * 1000;
+		/* QMAX from battery uah */
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		val->intval = data->charge_full_design;
+		break;
+	case POWER_SUPPLY_PROP_bat_id:
+		val->intval = data->bat_id;
 		break;
 
 		/* Dual battery */
@@ -747,12 +770,6 @@ static int battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_adjust_power:
 		val->intval = data->adjust_power;
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		val->intval = data->charge_full_design;
-		break;
-	case POWER_SUPPLY_PROP_bat_id:
-		val->intval = data->bat_id;
 		break;
 	case POWER_SUPPLY_PROP_bat_id_volt:
 		val->intval = data->bat_id_volt;
@@ -837,11 +854,11 @@ static struct battery_data battery_main = {
 #endif
 	.BAT_batt_vol = 0,
 	.BAT_batt_temp = 0,
+	.charge_full_design = E2C2__BATTERY_CAPACITY_DESIGN * 1000,
 	/* Dual battery */
 	.status_smb = POWER_SUPPLY_STATUS_DISCHARGING,
 	.capacity_smb = 50,
 	.present_smb = 0,
-	.charge_full_design = E2C2__BATTERY_CAPACITY_DESIGN * 1000,
 	/* ADB CMD discharging */
 	.adjust_power = -1,
 #endif
@@ -3386,6 +3403,8 @@ void BAT_thread(void)
 
 	mt_battery_factory_check(); //Jason: add for charging patch at 20150415
 	mt_kpoc_power_off_check();
+
+	/*Add in case something wrong happened in fg_bat_int_handler*/
 	battery_meter_set_fg_int();
 }
 

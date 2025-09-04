@@ -1213,8 +1213,9 @@ static void rpc_msg_handler(struct ccci_port *port, struct sk_buff *skb)
 	}
 	/* sanity check */
 	if (skb->len > RPC_MAX_BUF_SIZE) {
-		CCCI_ERROR_LOG(md_id, RPC, "invalid RPC buffer size 0x%x/0x%x\n", skb->len, RPC_MAX_BUF_SIZE);
-		goto err_out;
+		CCCI_ERROR_LOG(md_id, RPC, "invalid RPC buffer size 0x%x/0x%x\n", skb->len,
+						RPC_MAX_BUF_SIZE);
+				goto err_out;
 	}
 	if (rpc_buf->header.reserved < 0 || rpc_buf->header.reserved > RPC_REQ_BUFFER_NUM ||
 	    rpc_buf->para_num < 0 || rpc_buf->para_num > RPC_MAX_ARG_NUM) {
@@ -1233,8 +1234,8 @@ static void rpc_msg_handler(struct ccci_port *port, struct sk_buff *skb)
 		}
 		if ((data_len + sizeof(pkt[i].len) + pkt[i].len) > RPC_MAX_BUF_SIZE) {
 			CCCI_ERROR_LOG(md_id, RPC, "RPC buffer overflow in parse %zu\n",
-					data_len + sizeof(pkt[i].len) + pkt[i].len);
-			goto err_out;
+								 data_len + sizeof(pkt[i].len) + pkt[i].len);
+						goto err_out;
 		}
 		ptr += sizeof(pkt[i].len);
 		pkt[i].buf = ptr;
@@ -1251,7 +1252,7 @@ static void rpc_msg_handler(struct ccci_port *port, struct sk_buff *skb)
 	/* write back to modem */
 	/* update message */
 	rpc_buf->op_id |= RPC_API_RESP_ID;
-	data_len = (sizeof(rpc_buf->op_id) + sizeof(rpc_buf->para_num));
+	data_len = sizeof(rpc_buf->op_id) + sizeof(rpc_buf->para_num);
 	ptr = rpc_buf->buffer;
 	for (i = 0; i < rpc_buf->para_num; i++) {
 		if ((data_len + sizeof(pkt[i].len) + pkt[i].len) > RPC_MAX_BUF_SIZE) {
@@ -1342,6 +1343,11 @@ int port_rpc_recv_match(struct ccci_port *port, struct sk_buff *skb)
 						rpc_buf->op_id, port->name);
 			return 0;
 #endif
+		case IPC_RPC_QUERY_AP_SYS_PROPERTY:
+			CCCI_DEBUG_LOG(md_id, KERN, "userspace rpc msg 0x%x on %s\n",
+						rpc_buf->op_id, port->name);
+			return 0;
+
 		default:
 			CCCI_DEBUG_LOG(md_id, KERN, "kernelspace rpc msg 0x%x on %s\n",
 						rpc_buf->op_id, port->name);

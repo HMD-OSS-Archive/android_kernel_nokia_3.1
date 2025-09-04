@@ -727,7 +727,7 @@ static int android_verity_ctr(struct dm_target *ti, unsigned argc, char **argv)
 
 	dev = name_to_dev_t(target_device);
 	if (!dev) {
-		unsigned int timeout_ms = 2000;
+		const unsigned int timeout_ms = DM_VERITY_WAIT_DEV_TIMEOUT_MS;
 		unsigned int wait_time_ms = 0;
 
 		DMERR("android_verity_ctr: retry %s\n", target_device);

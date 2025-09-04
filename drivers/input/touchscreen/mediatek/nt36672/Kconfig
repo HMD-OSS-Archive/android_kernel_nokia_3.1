@@ -21,4 +21,3 @@ config GTP_USE_PMIC_DETECT_USB_PLUGIN
 
 	If unsure, say N.
 
-

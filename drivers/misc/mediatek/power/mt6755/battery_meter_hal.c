@@ -1293,7 +1293,7 @@ static signed int fgauge_meta_cali_car_tune_value(void *data)
 #if defined(CONFIG_POWER_EXT)
 	return STATUS_OK;
 #else
-	int cali_car_tune = 0;
+	int cali_car_tune;
 	long long sum_all = 0;
 	long long temp_sum = 0;
 	int	avg_cnt = 0;
@@ -1335,10 +1335,9 @@ static signed int fgauge_meta_cali_car_tune_value(void *data)
 		pr_err("[444]sum_all %lld temp_sum %lld avg_cnt %d current_from_ADC %lld\n",
 			sum_all, temp_sum, avg_cnt, current_from_ADC);
 
-		if (avg_cnt == 0)
-			return STATUS_UNSUPPORTED;
+		if (avg_cnt != 0)
+			do_div(temp_sum, avg_cnt);
 
-		do_div(temp_sum, avg_cnt);
 		current_from_ADC = temp_sum;
 
 		pr_err("[555]sum_all %lld temp_sum %lld avg_cnt %d current_from_ADC %lld\n",
@@ -1363,8 +1362,12 @@ static signed int fgauge_meta_cali_car_tune_value(void *data)
 		pr_err("[666]dvalue %d batt_meter_cust_data.r_fg_value %d\n", dvalue, batt_meter_cust_data.r_fg_value);
 
 		if (dvalue != 0)
-			cali_car_tune = g_meta_input_cali_current * 1000 / dvalue;
 			/* 1000 base, so multiple by 1000*/
+			cali_car_tune = g_meta_input_cali_current * 1000 / dvalue;
+		else {
+			cali_car_tune = 1000;
+			pr_err("fgauge_meta_cali_car_tune_value divide 0,set car_tune_value to 1000..\n ");
+		}
 
 		pr_err("[777]dvalue %d batt_meter_cust_data.r_fg_value %d cali_car_tune %d\n",
 			dvalue, batt_meter_cust_data.r_fg_value, cali_car_tune);

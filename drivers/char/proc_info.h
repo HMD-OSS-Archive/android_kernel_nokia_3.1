@@ -4,6 +4,8 @@
 
 #define fver_BLOCK 		"/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/systeminfo"
 #define DEVICEINFO_LOCATION     "/dev/block/platform/mtk-msdc.0/11230000.msdc0/by-name/deviceinfo"
+#define wifimac_BLOCK		"/vendor/nvdata/APCFG/APRDEB/WIFI"
+#define btmac_BLOCK		"/vendor/nvdata/APCFG/APRDEB/BT_Addr"
 
 #define STATUSROOT_LOCATION 	"/BBSYS/status.cfg"
 //#define FIH_HWID_INFO 	"/system/etc/Fih_Hwid_Info"
@@ -62,6 +64,9 @@
 #define FIH_CDA_KERN_ROOT  (1)
 #define FIH_CDA_STAT_USER  (0)
 #define FIH_CDA_STAT_ROOT  (1)
+
+#define WIFI_MAC		"wifi_mac"
+#define BT_MAC			"bt_mac"
 
 int otg_last_flag = 0;
 

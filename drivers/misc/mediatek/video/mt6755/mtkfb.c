@@ -1332,8 +1332,9 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg
 				}
 				memset((void *)&session_input, 0, sizeof(session_input));
 				if (layerInfo->layer_id >= TOTAL_OVL_LAYER_NUM) {
-					DISPAEE("MTKFB_SET_OVERLAY_LAYER ,layer_id invalid=%d\n",
+					DISPERR("MTKFB_SET_OVERLAY_LAYER ,layer_id invalid=%d\n",
 						layerInfo->layer_id);
+					kfree(layerInfo);
 					return -EFAULT;
 				} else {
 					input = &session_input.config[session_input.config_layer_num++];
@@ -1394,7 +1395,7 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg
 
 				for (i = 0; i < VIDEO_LAYER_COUNT; ++i) {
 					if (layerInfo[i].layer_id >= TOTAL_OVL_LAYER_NUM) {
-						DISPAEE("MTKFB_SET_VIDEO_LAYERS, layer_id invalid=%d\n",
+						DISPERR("MTKFB_SET_VIDEO_LAYERS, layer_id invalid=%d\n",
 						     layerInfo[i].layer_id);
 						continue;
 					}
@@ -1750,7 +1751,7 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd, unsigned l
 			}
 			memset((void *)&session_input, 0, sizeof(session_input));
 			if (layerInfo.layer_id >= TOTAL_OVL_LAYER_NUM) {
-				DISPAEE("COMPAT_MTKFB_SET_OVERLAY_LAYER, layer_id invalid:%d\n",
+				DISPERR("COMPAT_MTKFB_SET_OVERLAY_LAYER, layer_id invalid:%d\n",
 					  layerInfo.layer_id);
 			} else {
 				input = &session_input.config[session_input.config_layer_num++];
@@ -1787,7 +1788,7 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd, unsigned l
 			for (i = 0; i < VIDEO_LAYER_COUNT; ++i) {
 				compat_convert(&compat_layerInfo[i], &layerInfo);
 				if (layerInfo.layer_id >= TOTAL_OVL_LAYER_NUM) {
-					DISPAEE("COMPAT_MTKFB_SET_VIDEO_LAYERS, layer_id invalid=%d\n",
+					DISPERR("COMPAT_MTKFB_SET_VIDEO_LAYERS, layer_id invalid=%d\n",
 						     layerInfo.layer_id);
 					continue;
 				}

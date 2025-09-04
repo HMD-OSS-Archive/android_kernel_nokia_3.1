@@ -1101,7 +1101,9 @@ static ssize_t store_layout_value(struct device_driver *ddri, const char *buf, s
 			pr_err("invalid layout: %d, restore to %d\n", layout, data->hw.direction);
 		} else {
 			pr_err("invalid layout: (%d, %d)\n", layout, data->hw.direction);
-			hwmsen_get_convert(0, &data->cvt);
+			ret = hwmsen_get_convert(0, &data->cvt);
+			if (!ret)
+				pr_err("HWMSEN_GET_CONVERT function error!\r\n");
 		}
 	} else {
 		pr_err("invalid format = '%s'\n", buf);
@@ -2216,9 +2218,9 @@ static int akm8963_factory_enable_sensor(bool enabledisable, int64_t sample_peri
 static int akm8963_factory_get_data(int32_t data[3], int *status)
 {
 	int ret = 0;
-
 	/* get raw data */
 	ret = akm8963_m_get_data(&data[0], &data[1], &data[2], status);
+
 	data[0] = data[0] / CONVERT_M_DIV;
 	data[1] = data[1] / CONVERT_M_DIV;
 	data[2] = data[2] / CONVERT_M_DIV;

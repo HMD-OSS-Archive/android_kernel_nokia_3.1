@@ -166,7 +166,6 @@ void ext4_exit_crypto(void)
 	ext4_crypto_ctx_cachep = NULL;
 	if (ext4_crypt_info_cachep)
 		kmem_cache_destroy(ext4_crypt_info_cachep);
-	pr_notice("ext4_crypt_info_cachep destroyed\n");
 	ext4_crypt_info_cachep = NULL;
 }
 
@@ -198,7 +197,6 @@ int ext4_init_crypto(void)
 					    SLAB_RECLAIM_ACCOUNT);
 	if (!ext4_crypt_info_cachep)
 		goto fail;
-	pr_notice("get ext4_crypt_info_cachep at %p\n", ext4_crypt_info_cachep);
 
 	for (i = 0; i < num_prealloc_crypto_ctxs; i++) {
 		struct ext4_crypto_ctx *ctx;
@@ -459,9 +457,15 @@ errout:
 	return err;
 }
 
-bool ext4_valid_contents_enc_mode(uint32_t mode)
+bool ext4_valid_enc_modes(uint32_t contents_mode, uint32_t filenames_mode)
 {
-	return (mode == EXT4_ENCRYPTION_MODE_AES_256_XTS);
+	if (contents_mode == EXT4_ENCRYPTION_MODE_AES_256_XTS)
+		return filenames_mode == EXT4_ENCRYPTION_MODE_AES_256_CTS;
+
+	if (contents_mode == EXT4_ENCRYPTION_MODE_SPECK128_256_XTS)
+		return filenames_mode == EXT4_ENCRYPTION_MODE_SPECK128_256_CTS;
+
+	return false;
 }
 
 /**

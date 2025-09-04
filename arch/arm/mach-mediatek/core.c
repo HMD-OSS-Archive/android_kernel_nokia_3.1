@@ -84,6 +84,15 @@ DT_MACHINE_START(MT8127_DT, "MT8127")
 	.dt_compat	= mt8127_dt_match,
 MACHINE_END
 
+static const char *mt8163_dt_match[] __initconst = {
+	"mediatek,mt8163",
+	NULL
+};
+
+DT_MACHINE_START(MT8163_DT, "MT8163")
+	.dt_compat	= mt8163_dt_match,
+MACHINE_END
+
 static const char *mt7623_dt_match[] __initconst = {
 	"mediatek,mt7623",
 	NULL

@@ -41,11 +41,19 @@
 #define FW_CC_CSV_FILE "/data/local/tmp/FWCCTest.csv"
 #define NOISE_TEST_CSV_FILE "/data/local/tmp/NoiseTest.csv"
 #else
+#if 1
 #define SHORT_TEST_CSV_FILE "/sdcard/rawdata/ShortTest.csv"
 #define OPEN_TEST_CSV_FILE "/sdcard/rawdata/OpenTest.csv"
 #define FW_RAWDATA_CSV_FILE "/sdcard/rawdata/FWMutualTest.csv"
 #define FW_CC_CSV_FILE "/sdcard/rawdata/FWCCTest.csv"
 #define NOISE_TEST_CSV_FILE "/sdcard/rawdata/NoiseTest.csv"
+#else
+#define SHORT_TEST_CSV_FILE "/data/misc/touch/ShortTest.csv"
+#define OPEN_TEST_CSV_FILE "/data/misc/touch/OpenTest.csv"
+#define FW_RAWDATA_CSV_FILE "/data/misc/touch/FWMutualTest.csv"
+#define FW_CC_CSV_FILE "/data/misc/touch/FWCCTest.csv"
+#define NOISE_TEST_CSV_FILE "/data/misc/touch/NoiseTest.csv"
+#endif
 #endif
 
 #define nvt_mp_seq_printf_result(m, fmt, args...) do {	\
@@ -1762,7 +1770,7 @@ return:
 *******************************************************/
 int32_t nvt_mp_proc_init(void)
 {
-	NVT_proc_selftest_entry = proc_create("nvt_selftest", 0444, NULL, &nvt_selftest_fops);
+	NVT_proc_selftest_entry = proc_create("AllHWList/tp_self_test", 0444, NULL, &nvt_selftest_fops);
 	if (NVT_proc_selftest_entry == NULL) {
 		NVT_ERR("create /proc/nvt_selftest Failed!\n");
 		return -1;

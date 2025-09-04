@@ -24,6 +24,5 @@ int ovl2mem_output_config(disp_mem_output_config *out);
 int ovl2mem_trigger(int blocking, void *callback, unsigned int userdata);
 void ovl2mem_wait_done(void);
 int ovl2mem_deinit(void);
-unsigned int ovl2mem_get_max_layer(void);
 
 #endif

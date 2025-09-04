@@ -50,10 +50,6 @@
 
 #include <linux/firmware.h>
 #include <linux/syscalls.h>
-/*
-#include <soc/oppo/device_info.h>
-#include <soc/oppo/oppo_project.h>
-*/
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 38))
 #define KERNEL_ABOVE_2_6_38
 #endif
